@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Canadian Scam Shield — Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+
+  <main class="page" role="main">
+
+    <!-- Page heading -->
+    <h1 class="page__heading" id="page-title"></h1>
+
+    <!-- ===================================================
+         SECTION 1: Language
+         =================================================== -->
+    <section class="section" aria-labelledby="lang-heading">
+      <h2 class="section__heading" id="lang-heading"></h2>
+
+      <div class="radio-group" role="radiogroup" aria-labelledby="lang-heading">
+
+        <label class="radio-label">
+          <input
+            type="radio"
+            name="language"
+            value="en"
+            id="lang-en"
+            class="radio-input"
+          >
+          <span class="radio-text" id="label-lang-en"></span>
+        </label>
+
+        <label class="radio-label">
+          <input
+            type="radio"
+            name="language"
+            value="fr"
+            id="lang-fr"
+            class="radio-input"
+          >
+          <span class="radio-text" id="label-lang-fr"></span>
+        </label>
+
+      </div>
+    </section>
+
+    <!-- ===================================================
+         SECTION 2: Personal whitelist
+         =================================================== -->
+    <section class="section" aria-labelledby="whitelist-heading">
+      <h2 class="section__heading" id="whitelist-heading"></h2>
+      <p class="section__desc" id="whitelist-desc"></p>
+
+      <!-- Add domain form -->
+      <div class="whitelist-add-row">
+        <label for="whitelist-input" class="sr-only" id="whitelist-input-label"></label>
+        <input
+          type="text"
+          id="whitelist-input"
+          class="text-input"
+          autocomplete="off"
+          autocapitalize="off"
+          spellcheck="false"
+          inputmode="url"
+        >
+        <button id="whitelist-add-btn" class="btn btn--primary"></button>
+      </div>
+
+      <!-- Error message for invalid domain -->
+      <p id="whitelist-error" class="field-error" hidden aria-live="polite"></p>
+
+      <!-- Current whitelist entries -->
+      <ul id="whitelist-list" class="domain-list" aria-label="Trusted sites list" aria-live="polite"></ul>
+    </section>
+
+    <!-- ===================================================
+         SECTION 3: Info
+         =================================================== -->
+    <section class="section section--info" aria-labelledby="info-heading">
+      <h2 class="section__heading sr-only" id="info-heading">About</h2>
+
+      <p class="info-line">
+        <span id="version-label"></span>
+        <span id="version-value" class="info-line__value"></span>
+      </p>
+
+      <p id="privacy-summary" class="privacy-text"></p>
+
+      <p class="info-line">
+        <a id="cafc-link" class="link" target="_blank" rel="noopener noreferrer"></a>
+      </p>
+
+      <p id="pro-coming-soon" class="pro-note"></p>
+
+    </section>
+
+    <!-- Saved confirmation — aria-live so screen readers announce it -->
+    <div id="saved-confirm" class="saved-confirm" hidden aria-live="polite" role="status"></div>
+
+  </main>
+
+  <script type="module" src="options.js"></script>
+</body>
+</html>

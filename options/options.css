@@ -1,0 +1,376 @@
+/* ==========================================================================
+   options.css — Canadian Scam Shield settings page
+   Max-width: 640px centred; font: system-ui; body ≥16px; WCAG AA contrast.
+   Accessible focus styles; clean settings layout.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   CSS custom properties
+   -------------------------------------------------------------------------- */
+:root {
+  --color-brand:    #c41e3a;   /* Canadian red — used for headings, accents */
+  --color-brand-dk: #a0162d;   /* Darker red for hover states */
+
+  --color-safe:     #1a7340;   /* Green */
+  --color-text:     #111827;   /* Near-black body text */
+  --color-muted:    #6b7280;   /* Grey for secondary text */
+  --color-bg:       #ffffff;
+  --color-surface:  #f8f9fa;   /* Light grey for input backgrounds */
+  --color-border:   #d1d5db;
+  --color-error:    #b91c1c;   /* Red for validation errors */
+  --color-pro-note: #92400e;   /* Amber-brown for Pro teaser */
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+}
+
+/* --------------------------------------------------------------------------
+   Reset & base
+   -------------------------------------------------------------------------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+}
+
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 1rem;       /* 16px minimum */
+  line-height: 1.6;
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+/* Screen-reader only utility */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Focus styles — clear visible keyboard indicator (WCAG 2.4.7 / 2.4.11)
+   -------------------------------------------------------------------------- */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* --------------------------------------------------------------------------
+   Page layout — centred, max 640px, comfortable padding
+   -------------------------------------------------------------------------- */
+.page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px 20px 48px;
+}
+
+.page__heading {
+  font-size: 1.375rem;   /* 22px — clear page title */
+  font-weight: 700;
+  color: var(--color-brand);
+  margin-bottom: 24px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--color-border);
+}
+
+/* --------------------------------------------------------------------------
+   Sections
+   -------------------------------------------------------------------------- */
+.section {
+  margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.section:last-of-type {
+  border-bottom: none;
+}
+
+.section__heading {
+  font-size: 1.0625rem;   /* 17px */
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 12px;
+}
+
+.section__desc {
+  font-size: 0.9375rem;   /* 15px */
+  color: var(--color-muted);
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+
+/* --------------------------------------------------------------------------
+   Radio group (language selection)
+   -------------------------------------------------------------------------- */
+.radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 1rem;
+  color: var(--color-text);
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.radio-label:hover {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+}
+
+.radio-input {
+  /* Keep the native radio but size it up for easier tap/click targets */
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: var(--color-brand);
+  flex-shrink: 0;
+}
+
+.radio-input:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.radio-text {
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+/* --------------------------------------------------------------------------
+   Whitelist add-domain row
+   -------------------------------------------------------------------------- */
+.whitelist-add-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  margin-bottom: 8px;
+}
+
+.text-input {
+  flex: 1;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 1rem;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  min-width: 0;   /* flex shrink */
+  transition: border-color 0.12s;
+}
+
+.text-input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+}
+
+.text-input[aria-invalid="true"] {
+  border-color: var(--color-error);
+}
+
+/* --------------------------------------------------------------------------
+   Buttons
+   -------------------------------------------------------------------------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 18px;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  border: 2px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.btn--primary {
+  background: var(--color-brand);
+  color: #ffffff;
+  border-color: var(--color-brand);
+}
+
+.btn--primary:hover {
+  background: var(--color-brand-dk);
+  border-color: var(--color-brand-dk);
+}
+
+.btn--primary:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.btn--remove {
+  padding: 5px 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  background: transparent;
+  color: var(--color-error);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.btn--remove:hover {
+  background: #fef2f2;
+}
+
+.btn--remove:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   Validation error
+   -------------------------------------------------------------------------- */
+.field-error {
+  font-size: 0.875rem;
+  color: var(--color-error);
+  margin-top: 4px;
+  margin-bottom: 8px;
+}
+
+/* --------------------------------------------------------------------------
+   Domain list
+   -------------------------------------------------------------------------- */
+.domain-list {
+  list-style: none;
+  padding: 0;
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.domain-list__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 0.9375rem;
+}
+
+.domain-list__domain {
+  flex: 1;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.9375rem;
+  color: var(--color-text);
+  word-break: break-all;
+}
+
+/* --------------------------------------------------------------------------
+   Info section
+   -------------------------------------------------------------------------- */
+.section--info {
+  padding-top: 4px;
+}
+
+.info-line {
+  font-size: 0.9375rem;
+  color: var(--color-muted);
+  margin-bottom: 10px;
+}
+
+.info-line__value {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.privacy-text {
+  font-size: 0.9375rem;
+  color: var(--color-muted);
+  line-height: 1.6;
+  margin-bottom: 10px;
+}
+
+.link {
+  color: var(--color-brand);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  text-decoration: underline;
+}
+
+.link:hover {
+  color: var(--color-brand-dk);
+}
+
+.link:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.pro-note {
+  font-size: 0.875rem;
+  color: var(--color-pro-note);
+  font-style: italic;
+  margin-top: 6px;
+  padding: 8px 12px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: var(--radius-sm);
+}
+
+/* --------------------------------------------------------------------------
+   "Saved ✓" confirmation toast
+   -------------------------------------------------------------------------- */
+.saved-confirm {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  padding: 10px 18px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #ffffff;
+  background: var(--color-safe);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  /* Transition in */
+  opacity: 1;
+  transition: opacity 0.3s ease;
+  z-index: 100;
+}
+
+/* When hidden, keep it in the DOM but invisible to allow aria-live announcement */
+.saved-confirm[hidden] {
+  /* Override display:none from [hidden] so aria-live still works */
+  display: block !important;
+  opacity: 0;
+  pointer-events: none;
+}

@@ -1,0 +1,475 @@
+/*
+ * warning/warning.css — Full-page scam warning screen
+ *
+ * Design goals:
+ *   - Calm and trustworthy, not alarming
+ *   - High contrast (WCAG AAA target for heading/body)
+ *   - Large, readable type (≥18px body, ≥28px heading)
+ *   - Comfortable whitespace
+ *   - Single red accent (#b3261e) — used ONLY for the header bar and maple leaf
+ *   - Off-white background (#f7f7f5), dark text (#1a1a1a)
+ *   - Centred card (max-width 720px) with subtle shadow
+ *   - No external images, no inline styles
+ */
+
+/* ============================================================
+   Reset / base
+   ============================================================ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ============================================================
+   Page wrapper — centres the card vertically and horizontally
+   ============================================================ */
+
+body {
+  min-height: 100vh;
+  background-color: #f7f7f5;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 18px;
+  line-height: 1.6;
+  color: #1a1a1a;
+  display: flex;
+  align-items: flex-start;   /* top-align on small viewports */
+  justify-content: center;
+  padding: 2rem 1rem 4rem;
+}
+
+.page-wrapper {
+  width: 100%;
+  max-width: 720px;
+}
+
+/* ============================================================
+   Card
+   ============================================================ */
+
+.card {
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.10), 0 1px 3px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+/* ============================================================
+   Card header bar — deep red accent strip
+   ============================================================ */
+
+.card__header {
+  background-color: #b3261e;
+  padding: 1rem 1.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.app-name {
+  color: #ffffff;
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+/* ============================================================
+   CSS-only maple leaf (clip-path polygon approximation)
+   Rendered as a square with a clip-path that produces an
+   11-point maple-leaf silhouette; no external images required.
+   ============================================================ */
+
+.maple-leaf {
+  display: inline-block;
+  width: 28px;
+  height: 28px;
+  background-color: #ffffff;
+  flex-shrink: 0;
+
+  /*
+   * 11-point maple leaf polygon.
+   * Points are expressed as percentages of the 28×28 box.
+   * The stem is at the bottom-centre; the top lobe is centred.
+   */
+  clip-path: polygon(
+    50%  0%,    /* top centre point */
+    58% 20%,    /* upper-right notch inner */
+    80% 14%,    /* upper-right outer tip */
+    68% 32%,    /* right upper notch bottom */
+    100% 40%,   /* far right point */
+    76% 50%,    /* right inner shoulder */
+    82% 68%,    /* lower-right outer tip */
+    60% 58%,    /* lower-right inner */
+    56% 78%,    /* right stem shoulder */
+    50% 100%,   /* stem bottom (will be covered by stem below) */
+    44% 78%,    /* left stem shoulder */
+    40% 58%,    /* lower-left inner */
+    18% 68%,    /* lower-left outer tip */
+    24% 50%,    /* left inner shoulder */
+    0%  40%,    /* far left point */
+    32% 32%,    /* left upper notch bottom */
+    20% 14%,    /* upper-left outer tip */
+    42% 20%     /* upper-left notch inner */
+  );
+}
+
+/* ============================================================
+   Card body
+   ============================================================ */
+
+.card__body {
+  padding: 2rem 2.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+/* ============================================================
+   Warning heading — large, dark (not red; red is only in header)
+   ============================================================ */
+
+.warning-heading {
+  font-size: clamp(1.75rem, 5vw, 2rem); /* ≥ 28px */
+  font-weight: 700;
+  line-height: 1.25;
+  color: #1a1a1a;
+  letter-spacing: -0.01em;
+}
+
+/* ============================================================
+   Sub-heading
+   ============================================================ */
+
+.warning-subheading {
+  font-size: 1.05rem;
+  color: #3d3d3d;
+  line-height: 1.65;
+}
+
+/* ============================================================
+   Suspicious URL section
+   ============================================================ */
+
+.url-section {
+  background-color: #f3f2f0;
+  border-left: 4px solid #b3261e;
+  border-radius: 0 4px 4px 0;
+  padding: 0.9rem 1.1rem;
+}
+
+.url-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #555555;
+  margin-bottom: 0.35rem;
+}
+
+.url-value {
+  overflow: hidden;
+}
+
+.url-value code {
+  font-family: "SFMono-Regular", "Consolas", "Liberation Mono", "Menlo", monospace;
+  font-size: 0.9rem;
+  color: #1a1a1a;
+  word-break: break-all;
+  /* Full value is in the title attribute; truncate very long URLs visually */
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   Reasons section
+   ============================================================ */
+
+.reasons-heading {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 0.6rem;
+}
+
+.reasons-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.reasons-list li {
+  padding-left: 1.4rem;
+  position: relative;
+  color: #2a2a2a;
+  line-height: 1.55;
+}
+
+/* Bullet: small red square to echo the brand accent without being alarming */
+.reasons-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 7px;
+  height: 7px;
+  background-color: #b3261e;
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   Real-site section
+   ============================================================ */
+
+.real-site-section {
+  background-color: #eaf3ea;
+  border: 1px solid #c3ddc3;
+  border-radius: 4px;
+  padding: 1rem 1.2rem;
+}
+
+.real-site-label {
+  color: #1a3d1a;
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+  line-height: 1.5;
+}
+
+.real-site-link {
+  color: #0b5e0b;
+  font-size: 0.95rem;
+  word-break: break-all;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.real-site-link:hover,
+.real-site-link:focus {
+  color: #073f07;
+  text-decoration-thickness: 2px;
+}
+
+.real-site-link:focus-visible {
+  outline: 3px solid #1a73e8;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ============================================================
+   CAFC section
+   ============================================================ */
+
+.cafc-section {
+  border-top: 1px solid #e4e2df;
+  padding-top: 1.25rem;
+}
+
+.cafc-text {
+  color: #3d3d3d;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin-bottom: 0.4rem;
+}
+
+.cafc-link {
+  color: #0b5e8a;
+  font-size: 0.9rem;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  word-break: break-all;
+}
+
+.cafc-link:hover,
+.cafc-link:focus {
+  color: #073e5c;
+  text-decoration-thickness: 2px;
+}
+
+.cafc-link:focus-visible {
+  outline: 3px solid #1a73e8;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ============================================================
+   Action buttons
+   ============================================================ */
+
+.card__actions {
+  padding: 0 2.25rem 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.btn {
+  cursor: pointer;
+  border: none;
+  border-radius: 5px;
+  font-family: inherit;
+  font-weight: 600;
+  line-height: 1.2;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Focus ring — applies to both buttons */
+.btn:focus-visible {
+  outline: 3px solid #1a73e8;
+  outline-offset: 2px;
+}
+
+/* Primary: "Go back to safety" */
+.btn--primary {
+  background-color: #b3261e;
+  color: #ffffff;
+  font-size: 1.05rem;
+  padding: 0 1.75rem;
+  min-height: 52px;   /* ≥ 48px touch target */
+  min-width: 200px;
+}
+
+.btn--primary:hover {
+  background-color: #9a1f18;
+  box-shadow: 0 2px 6px rgba(179, 38, 30, 0.4);
+}
+
+.btn--primary:active {
+  background-color: #821a14;
+}
+
+/* Secondary: "I understand the risk, continue anyway" */
+.btn--secondary {
+  background-color: transparent;
+  color: #555555;
+  border: 1.5px solid #b0aea9;
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 0 1.25rem;
+  min-height: 40px;
+}
+
+.btn--secondary:hover {
+  background-color: #f0eeeb;
+  border-color: #8a8884;
+  color: #2a2a2a;
+}
+
+.btn--secondary:active {
+  background-color: #e4e2de;
+}
+
+/* ============================================================
+   Disclaimer
+   ============================================================ */
+
+.disclaimer {
+  font-size: 0.8rem;
+  color: #767471;
+  line-height: 1.55;
+  padding: 0 2.25rem 1.75rem;
+  border-top: 1px solid #e4e2df;
+  padding-top: 1.1rem;
+  margin-top: -0.5rem;
+}
+
+/* ============================================================
+   Responsive adjustments
+   ============================================================ */
+
+@media (max-width: 600px) {
+  body {
+    padding: 0.5rem 0 3rem;
+    align-items: flex-start;
+  }
+
+  .card {
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .card__header {
+    padding: 0.85rem 1.25rem;
+  }
+
+  .card__body {
+    padding: 1.5rem 1.25rem;
+    gap: 1.4rem;
+  }
+
+  .card__actions {
+    padding: 0 1.25rem 1.5rem;
+  }
+
+  .btn--primary {
+    width: 100%;
+  }
+
+  .btn--secondary {
+    width: 100%;
+    text-align: center;
+  }
+
+  .disclaimer {
+    padding: 1rem 1.25rem 1.5rem;
+  }
+}
+
+/* ============================================================
+   Reduced-motion: disable transitions for users who prefer it
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .btn {
+    transition: none;
+  }
+}
+
+/* ============================================================
+   High-contrast mode support (Windows forced-colors)
+   ============================================================ */
+
+@media (forced-colors: active) {
+  .card__header {
+    background-color: ButtonFace;
+    border-bottom: 2px solid ButtonText;
+  }
+
+  .app-name {
+    color: ButtonText;
+  }
+
+  .maple-leaf {
+    background-color: ButtonText;
+  }
+
+  .url-section {
+    border-left-color: ButtonText;
+  }
+
+  .btn--primary {
+    background-color: ButtonText;
+    color: ButtonFace;
+    border: 2px solid ButtonText;
+  }
+
+  .btn--secondary {
+    border-color: ButtonText;
+    color: ButtonText;
+  }
+
+  .reasons-list li::before {
+    background-color: ButtonText;
+  }
+}

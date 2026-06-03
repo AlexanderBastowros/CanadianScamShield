@@ -1,0 +1,6 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2026-05-27",
+  "description": "Confirmed malicious domains blocked immediately on navigation. Each entry is an apex domain only (no protocol, no www., no path); subdomains are also treated as blocked. Updated from the GitHub data repo in a later phase. Sources: CAFC bulletins, PhishTank Canadian entries, community reports.",
+  "domains": []
+}

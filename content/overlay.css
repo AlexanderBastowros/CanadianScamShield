@@ -1,0 +1,173 @@
+/*
+ * content/overlay.css
+ * Canadian Scam Shield — in-page warning banner styles
+ *
+ * Injected into every http(s) page alongside content-script.js.
+ * Uses a unique "css-scam-banner" prefix on all class names to minimise
+ * the risk of collisions with host-page styles.
+ *
+ * WCAG AA contrast requirements:
+ *   --low    text #1a1a1a on #e7f0fb  — ratio ≈ 11:1 ✓
+ *   --medium text #1a1a1a on #fff3cd  — ratio ≈ 13:1 ✓
+ *   --high   text #1a1a1a on #f8d7da  — ratio ≈ 12:1 ✓
+ *   Dismiss / Why? buttons follow the same palette.
+ */
+
+/* ---------------------------------------------------------------------------
+   Base banner — shared layout and typography
+   --------------------------------------------------------------------------- */
+
+.css-scam-banner {
+  /* Fixed at the very top of the viewport, spanning full width */
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2147483647; /* Maximum z-index to appear above all page content */
+
+  /* Layout */
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  box-sizing: border-box;
+  padding: 14px 18px;
+
+  /* Typography */
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: #1a1a1a;
+
+  /* Elevation */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+/* ---------------------------------------------------------------------------
+   Risk-level variants
+   --------------------------------------------------------------------------- */
+
+/* Low — calm informational blue */
+.css-scam-banner--low {
+  background-color: #e7f0fb;
+  border-left: 5px solid #4a90d9;
+}
+
+/* Medium — amber caution */
+.css-scam-banner--medium {
+  background-color: #fff3cd;
+  border-left: 5px solid #E8A317;
+}
+
+/* High — red alert (not used for the banner in practice — high goes to
+   the full warning page — but defined here for completeness / testing) */
+.css-scam-banner--high {
+  background-color: #f8d7da;
+  border-left: 5px solid #c0392b;
+}
+
+/* ---------------------------------------------------------------------------
+   Banner content areas
+   --------------------------------------------------------------------------- */
+
+.css-scam-banner__message {
+  font-weight: 600;
+  flex: 1 1 auto; /* takes up available space, pushing buttons to the right */
+}
+
+.css-scam-banner__first-reason {
+  font-size: 14px;
+  color: #444;
+  flex-basis: 100%; /* push onto its own line when space is tight */
+}
+
+/* ---------------------------------------------------------------------------
+   Reasons detail panel (hidden by default; shown via .is-open + JS toggle)
+   --------------------------------------------------------------------------- */
+
+.css-scam-banner__reasons {
+  display: none;
+  flex-basis: 100%;
+  margin-top: 8px;
+  padding: 10px 14px;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.css-scam-banner__reasons.is-open {
+  display: block;
+}
+
+.css-scam-banner__reasons-list {
+  margin: 0 0 8px 0;
+  padding-left: 18px;
+}
+
+.css-scam-banner__reasons-list li {
+  margin-bottom: 4px;
+}
+
+.css-scam-banner__official-link {
+  margin: 4px 0 0 0;
+  font-size: 13px;
+}
+
+.css-scam-banner__official-link a {
+  color: #0056b3;
+  text-decoration: underline;
+}
+
+/* ---------------------------------------------------------------------------
+   Buttons — Why? and Dismiss
+   --------------------------------------------------------------------------- */
+
+.css-scam-banner__btn {
+  /* Reset browser button defaults */
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+
+  /* Sizing — ≥44px tall touch target as per WCAG 2.5.5 */
+  min-height: 44px;
+  padding: 8px 16px;
+
+  /* Typography */
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 500;
+  color: #1a1a1a;
+
+  /* Transition */
+  transition: background-color 0.15s ease, opacity 0.15s ease;
+
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.css-scam-banner__btn:hover {
+  background-color: rgba(0, 0, 0, 0.08);
+}
+
+.css-scam-banner__btn:active {
+  background-color: rgba(0, 0, 0, 0.15);
+}
+
+/* Clear, high-contrast focus indicator for keyboard navigation */
+.css-scam-banner__btn:focus-visible {
+  outline: 3px solid #1a73e8;
+  outline-offset: 2px;
+}
+
+/* Why? — secondary action, slightly muted */
+.css-scam-banner__btn--why {
+  opacity: 0.85;
+}
+
+/* Dismiss — clearly labelled, subtle de-emphasis */
+.css-scam-banner__btn--dismiss {
+  margin-left: auto; /* push to far right on wide screens */
+}

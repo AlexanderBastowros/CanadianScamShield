@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Canadian Scam Shield</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+
+  <!-- ===== HEADER ===== -->
+  <header class="header" role="banner">
+    <div class="header__logo" aria-hidden="true">
+      <!-- CSS-drawn maple leaf using clip-path polygon -->
+      <span class="maple-leaf"></span>
+    </div>
+    <span class="header__title" id="app-name"></span>
+  </header>
+
+  <!-- ===== TAB BAR ===== -->
+  <div class="tabs" role="tablist" aria-label="Popup navigation">
+    <button
+      id="tab-status"
+      class="tab-btn is-active"
+      role="tab"
+      aria-selected="true"
+      aria-controls="panel-status"
+    ></button>
+    <button
+      id="tab-check"
+      class="tab-btn"
+      role="tab"
+      aria-selected="false"
+      aria-controls="panel-check"
+    ></button>
+  </div>
+
+  <!-- ===== PANEL 1: STATUS ===== -->
+  <div id="panel-status" class="panel" role="tabpanel" aria-labelledby="tab-status">
+
+    <!-- Loading state -->
+    <div id="status-loading" class="status-loading" aria-live="polite" aria-busy="true">
+      <span class="spinner" aria-hidden="true"></span>
+      <span class="sr-only">Checking site…</span>
+    </div>
+
+    <!-- Result state (hidden until loaded) -->
+    <div id="status-result" class="status-result" hidden>
+
+      <div class="status-row">
+        <span id="status-indicator" class="status-indicator" aria-hidden="true"></span>
+        <span id="status-text" class="status-text"></span>
+      </div>
+
+      <p id="status-detail" class="status-detail" hidden></p>
+
+      <!-- Why? accordion — only shown for low/medium/high -->
+      <div id="why-section" class="why-section" hidden>
+        <button
+          id="why-btn"
+          class="why-btn"
+          aria-expanded="false"
+          aria-controls="reasons-panel"
+        ></button>
+        <div id="reasons-panel" class="reasons-panel" hidden>
+          <p class="reasons-heading" id="reasons-heading"></p>
+          <ul id="reasons-list" class="reasons-list"></ul>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- ===== PANEL 2: CHECK A MESSAGE ===== -->
+  <div id="panel-check" class="panel" role="tabpanel" aria-labelledby="tab-check" hidden>
+    <div class="coming-soon">
+      <textarea
+        class="check-textarea"
+        disabled
+        aria-label="Message checker — coming soon"
+      ></textarea>
+      <p id="check-coming-soon" class="coming-soon__text"></p>
+    </div>
+  </div>
+
+  <!-- ===== FOOTER ===== -->
+  <footer class="footer" role="contentinfo">
+    <button id="btn-options" class="footer__link footer__link--btn"></button>
+    <span class="footer__sep" aria-hidden="true">·</span>
+    <button id="btn-cafc" class="footer__link footer__link--btn"></button>
+  </footer>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Warning — Canadian Scam Shield</title>
+  <link rel="stylesheet" href="warning.css" />
+</head>
+<body>
+  <div class="page-wrapper">
+    <div class="card" role="main">
+
+      <!-- ================================================================
+           Header bar: app name + maple leaf
+           ================================================================ -->
+      <header class="card__header" aria-label="Canadian Scam Shield">
+        <span class="maple-leaf" aria-hidden="true"></span>
+        <span class="app-name" id="app-name"></span>
+      </header>
+
+      <!-- ================================================================
+           Warning body
+           ================================================================ -->
+      <div class="card__body">
+
+        <!-- Heading -->
+        <h1 class="warning-heading" id="warning-heading"></h1>
+
+        <!-- Sub-heading / reassurance copy -->
+        <p class="warning-subheading" id="warning-subheading"></p>
+
+        <!-- Suspicious URL -->
+        <section class="url-section" aria-labelledby="url-label">
+          <p class="url-label" id="url-label"></p>
+          <p class="url-value">
+            <code id="suspicious-url"></code>
+          </p>
+        </section>
+
+        <!-- Why we flagged this -->
+        <section class="reasons-section" aria-labelledby="reasons-heading">
+          <h2 class="reasons-heading" id="reasons-heading"></h2>
+          <ul class="reasons-list" id="reasons-list" aria-live="polite">
+            <!-- populated by warning.js -->
+          </ul>
+        </section>
+
+        <!-- Real-site block -->
+        <section class="real-site-section" id="real-site-section" aria-labelledby="real-site-label">
+          <p id="real-site-label" class="real-site-label"></p>
+          <!-- real-site-link injected here when officialUrl is present -->
+        </section>
+
+        <!-- CAFC report block -->
+        <section class="cafc-section" aria-label="Report this scam">
+          <p class="cafc-text" id="cafc-text"></p>
+          <a class="cafc-link" id="cafc-link" target="_blank" rel="noopener noreferrer"></a>
+        </section>
+
+      </div><!-- /.card__body -->
+
+      <!-- ================================================================
+           Action buttons
+           Keyboard order: primary first, secondary second
+           ================================================================ -->
+      <div class="card__actions">
+        <button
+          type="button"
+          class="btn btn--primary"
+          id="btn-go-back"
+          autofocus
+        ></button>
+
+        <button
+          type="button"
+          class="btn btn--secondary"
+          id="btn-proceed"
+        ></button>
+      </div>
+
+      <!-- Disclaimer -->
+      <p class="disclaimer" id="disclaimer"></p>
+
+    </div><!-- /.card -->
+  </div><!-- /.page-wrapper -->
+
+  <script type="module" src="warning.js"></script>
+</body>
+</html>
