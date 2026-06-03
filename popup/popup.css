@@ -40,6 +40,13 @@
   padding: 0;
 }
 
+/* The [hidden] attribute must always win over class-based `display` rules
+   (e.g. .status-loading { display:flex }). The UA stylesheet's
+   [hidden]{display:none} loses to any author rule, so enforce it here. */
+[hidden] {
+  display: none !important;
+}
+
 html {
   font-size: 16px;
 }

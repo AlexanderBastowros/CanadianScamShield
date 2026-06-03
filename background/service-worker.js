@@ -77,6 +77,57 @@ async function runAnalysis(url) {
 }
 
 // ---------------------------------------------------------------------------
+// Override allowlist
+// ---------------------------------------------------------------------------
+//
+// When a user clicks "I understand the risk, continue anyway" on the warning
+// page, we record that hostname so we do NOT re-block it for the rest of the
+// browser session. Stored in chrome.storage.session (cleared when the browser
+// closes) so an override never persists indefinitely.
+
+/** Extract a lowercase hostname from a URL, or null if it can't be parsed. */
+function hostnameOf(url) {
+  try {
+    return new URL(url).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+/** Returns true if the URL's hostname has been overridden this session. */
+async function isOverridden(url) {
+  const host = hostnameOf(url);
+  if (!host) return false;
+  try {
+    const { _overrides = {} } = await chrome.storage.session.get('_overrides');
+    return _overrides[host] === true;
+  } catch {
+    return false;
+  }
+}
+
+/** Record a session override for the URL's hostname. */
+async function addOverride(url) {
+  const host = hostnameOf(url);
+  if (!host) return;
+  try {
+    const { _overrides = {} } = await chrome.storage.session.get('_overrides');
+    _overrides[host] = true;
+    await chrome.storage.session.set({ _overrides });
+  } catch (e) {
+    console.warn('CSS could not persist override:', e);
+  }
+}
+
+/** Navigate a tab to a safe page (New Tab page, falling back to about:blank). */
+function goToSafety(tabId) {
+  if (tabId == null) return;
+  chrome.tabs.update(tabId, { url: 'chrome://newtab/' }).catch(() => {
+    chrome.tabs.update(tabId, { url: 'about:blank' }).catch(() => {});
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Lifecycle — onInstalled
 // ---------------------------------------------------------------------------
 
@@ -97,6 +148,13 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   // Only process fully loaded http(s) pages
   if (changeInfo.status !== 'complete') return;
   if (!tab.url || !/^https?:\/\//i.test(tab.url)) return;
+
+  // Respect a user's explicit "continue anyway" choice for this session —
+  // otherwise we would immediately re-block the page they chose to visit.
+  if (await isOverridden(tab.url)) {
+    chrome.action.setBadgeText({ tabId, text: '' });
+    return;
+  }
 
   try {
     const result = await runAnalysis(tab.url);
@@ -189,12 +247,40 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 
   // ------------------------------------------------------------------
-  // LOG_OVERRIDE — warning page reports that the user chose to proceed
-  // despite the high-risk warning.  We log the URL for diagnostic
-  // purposes.  No PII beyond the URL itself is recorded.
+  // OVERRIDE_PROCEED — user clicked "continue anyway" on the warning page.
+  // Record a session override for the hostname so we don't re-block it, then
+  // acknowledge so the warning page can navigate. Replies asynchronously.
+  // ------------------------------------------------------------------
+  if (msg.type === 'OVERRIDE_PROCEED') {
+    console.log('Override:', msg.url);
+    addOverride(msg.url)
+      .then(() => sendResponse({ ok: true }))
+      .catch(() => sendResponse({ ok: false }));
+    return true; // keep the channel open for the async response
+  }
+
+  // ------------------------------------------------------------------
+  // GO_BACK_SAFE — user clicked "go back to safety". Navigate the tab that
+  // hosts the warning page to a safe page (cannot use history.back() because
+  // the previous entry is the flagged page, which would re-block).
+  // ------------------------------------------------------------------
+  if (msg.type === 'GO_BACK_SAFE') {
+    const tabId = sender.tab?.id;
+    if (tabId != null) {
+      goToSafety(tabId);
+    } else {
+      chrome.tabs
+        .query({ active: true, currentWindow: true })
+        .then(([active]) => active && goToSafety(active.id));
+    }
+    return false;
+  }
+
+  // ------------------------------------------------------------------
+  // LOG_OVERRIDE — legacy/no-op diagnostic log (kept for compatibility).
   // ------------------------------------------------------------------
   if (msg.type === 'LOG_OVERRIDE') {
-    console.log('Override:', msg.url);
+    console.log('Override (log only):', msg.url);
     return false;
   }
 

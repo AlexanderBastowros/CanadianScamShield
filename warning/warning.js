@@ -152,22 +152,30 @@ setText('btn-proceed',  t('warning_proceed', lang));
 // Button behaviour
 // ---------------------------------------------------------------------------
 
-// Primary: go back to safety
+// Primary: go back to safety.
+// We must NOT use history.back() here — the previous history entry is the
+// flagged page itself, which would be re-analysed and bounce us straight back
+// to this warning. Instead, ask the service worker to navigate this tab to a
+// safe page (the New Tab page, falling back to about:blank).
 document.getElementById('btn-go-back')?.addEventListener('click', () => {
-  if (window.history.length > 1) {
-    history.back();
-  } else {
+  try {
+    chrome.runtime.sendMessage({ type: 'GO_BACK_SAFE' });
+  } catch {
+    // Extension context unavailable — best-effort local fallback.
     window.location.replace('about:blank');
   }
 });
 
-// Secondary: log override and navigate to the flagged URL
-document.getElementById('btn-proceed')?.addEventListener('click', () => {
-  // Inform the service worker (best-effort — don't block navigation on failure)
+// Secondary: proceed despite the warning.
+// We must register a one-session override with the service worker BEFORE
+// navigating, otherwise the service worker would immediately re-block the
+// flagged URL and bounce the user back to this warning page.
+document.getElementById('btn-proceed')?.addEventListener('click', async () => {
   try {
-    chrome.runtime.sendMessage({ type: 'LOG_OVERRIDE', url });
+    await chrome.runtime.sendMessage({ type: 'OVERRIDE_PROCEED', url });
   } catch {
-    // Extension context may be unavailable; proceed regardless
+    // If the message fails, fall back to a plain navigation. It may get
+    // re-blocked, but that is safer than silently swallowing the click.
   }
   window.location.href = url;
 });
