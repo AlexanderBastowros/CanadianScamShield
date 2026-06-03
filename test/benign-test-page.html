@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<!--
+  TEST FIXTURE — Canadian Scam Shield
+  A benign control page. The content analyzer should leave this alone
+  (no banner, no warning). Used to check for false positives.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Maple & Pine — Handmade Candles</title>
+  <meta name="description" content="Small-batch soy candles and home decor, made in Ontario. Free shipping over $50.">
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #222; }
+    .test-banner { background: #d1fae5; border: 2px dashed #047857; color: #064e3b; padding: 12px 16px; border-radius: 8px; font-weight: 700; margin-bottom: 28px; }
+    .card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+    h1 { font-size: 22px; margin-top: 0; }
+    label { display: block; margin: 14px 0 4px; font-weight: 600; }
+    input { width: 100%; padding: 10px; font-size: 16px; border: 1px solid #bbb; border-radius: 6px; box-sizing: border-box; }
+    button { margin-top: 18px; padding: 12px 20px; font-size: 16px; background: #047857; color: #fff; border: 0; border-radius: 6px; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+  <div class="test-banner" role="note">
+    ✅ BENIGN TEST PAGE — Canadian Scam Shield should NOT warn on this page.
+  </div>
+
+  <div class="card">
+    <h1>Maple &amp; Pine Candle Co.</h1>
+    <p>
+      Hand-poured soy candles in seasonal scents — balsam, cedar, and wild
+      blueberry. Each candle is made in small batches in Whitby, Ontario, and
+      burns for roughly 50 hours. Free local pickup, or free shipping on orders
+      over $50.
+    </p>
+
+    <p>Join our newsletter for new scents and seasonal sales:</p>
+
+    <form onsubmit="return false;">
+      <label for="email">Email address</label>
+      <input id="email" name="email" type="email" placeholder="you@example.com" autocomplete="email">
+
+      <button type="submit">Subscribe</button>
+    </form>
+  </div>
+
+</body>
+</html>

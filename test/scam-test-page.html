@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<!--
+  TEST FIXTURE — Canadian Scam Shield
+  This is a FAKE, harmless page used only to exercise the Layer 2 content
+  analyzer locally. It impersonates no real party's branding and collects
+  nothing (the form does not submit anywhere). Do NOT enter real information.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CRA Refund Notice — Action Required</title>
+  <meta name="description" content="Your Canada Revenue Agency GST/HST refund is pending. Verify within 24 hours to avoid penalties.">
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #222; }
+    .test-banner { background: #fde68a; border: 2px dashed #b45309; color: #7c2d12; padding: 12px 16px; border-radius: 8px; font-weight: 700; margin-bottom: 28px; }
+    .notice { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+    h1 { font-size: 22px; margin-top: 0; }
+    label { display: block; margin: 14px 0 4px; font-weight: 600; }
+    input { width: 100%; padding: 10px; font-size: 16px; border: 1px solid #bbb; border-radius: 6px; box-sizing: border-box; }
+    button { margin-top: 18px; padding: 12px 20px; font-size: 16px; background: #c0392b; color: #fff; border: 0; border-radius: 6px; cursor: pointer; }
+    .urgent { color: #b91c1c; font-weight: 700; }
+  </style>
+</head>
+<body>
+
+  <div class="test-banner" role="note">
+    ⚠️ FAKE TEST PAGE — for Canadian Scam Shield testing only. Harmless. Do not enter real information.
+  </div>
+
+  <div class="notice">
+    <h1>Canada Revenue Agency — GST/HST Refund Notice</h1>
+
+    <p>Dear taxpayer,</p>
+
+    <p>
+      Our records show that you are eligible for a <strong>GST/HST refund</strong>
+      of <strong>$458.21</strong>. This is your <span class="urgent">final notice</span>.
+      You must verify your identity <span class="urgent">within 24 hours</span> or your
+      refund will be cancelled and your account may be suspended.
+    </p>
+
+    <p>
+      To release your tax refund immediately, a small processing fee is required.
+      For your security, the Canada Revenue Agency now accepts payment by
+      <strong>gift card</strong> (iTunes card or Google Play card). Enter your
+      details below to confirm your refund.
+    </p>
+
+    <!-- This form goes nowhere; action is a no-op for safe local testing. -->
+    <form onsubmit="return false;">
+      <label for="full-name">Full name</label>
+      <input id="full-name" name="full_name" type="text" placeholder="First and last name" autocomplete="off">
+
+      <label for="sin">Social Insurance Number (required to verify)</label>
+      <input id="sin" name="sin" type="text" placeholder="000-000-000" autocomplete="off">
+
+      <label for="giftcard">Gift card code</label>
+      <input id="giftcard" name="giftcard_code" type="text" placeholder="XXXX-XXXX-XXXX" autocomplete="off">
+
+      <button type="submit">Verify and release my refund</button>
+    </form>
+  </div>
+
+</body>
+</html>
