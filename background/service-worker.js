@@ -13,7 +13,8 @@
  * single worker activation and is rebuilt cheaply on the next wake if needed.
  */
 
-import { analyzeUrl } from '../lib/url-analyzer.js';
+import { analyzeUrl }     from '../lib/url-analyzer.js';
+import { analyzeContent } from '../lib/content-analyzer.js';
 
 // ---------------------------------------------------------------------------
 // Data file cache
@@ -49,10 +50,64 @@ async function getDataFile(name) {
     // without null-checking — shape depends on which file failed.
     _cache[name] = name.includes('whitelist')
       ? { institutions: [] }
-      : { domains: [] };
+      : name.includes('keyword')
+        ? { categories: {} }
+        : { domains: [] };
   }
 
   return _cache[name];
+}
+
+// ---------------------------------------------------------------------------
+// Verdict helpers — shared by tabs.onUpdated and the PAGE_FEATURES handler
+// ---------------------------------------------------------------------------
+
+/**
+ * Maps a numeric score to a verdict band, matching the threshold model defined
+ * in docs/handoff.md: <30 safe, 30–54 low, 55–79 medium, ≥80 high.
+ *
+ * @param {number} score
+ * @returns {'safe'|'low'|'medium'|'high'}
+ */
+function bandOf(score) {
+  return score >= 80 ? 'high'
+       : score >= 55 ? 'medium'
+       : score >= 30 ? 'low'
+       :               'safe';
+}
+
+/**
+ * Ordinal rank for verdicts — used to ensure the final verdict never
+ * drops below a component verdict (escalate-only merge).
+ */
+const VERDICT_RANK = { safe: 0, low: 1, medium: 2, high: 3 };
+
+/**
+ * buildWarningUrl(url, score, reasons, officialUrl, institutionName, lang)
+ *
+ * Constructs the full URL for the warning.html page, encoding all context as
+ * query parameters.  Centralises the URLSearchParams logic so both the
+ * tabs.onUpdated handler and the PAGE_FEATURES handler stay in sync.
+ *
+ * @param {string}   url             - The suspicious page URL
+ * @param {number}   score           - Combined risk score (0–100)
+ * @param {string[]} reasons         - Array of human-readable trigger descriptions
+ * @param {string}   officialUrl     - URL of the legitimate institution ('' if unknown)
+ * @param {string}   institutionName - Name of the institution ('' if unknown)
+ * @param {string}   lang            - UI language code, e.g. 'en'
+ * @returns {string}
+ */
+function buildWarningUrl(url, score, reasons, officialUrl, institutionName, lang) {
+  const params = new URLSearchParams({
+    url,
+    score: String(score),
+    // reasons is an array — JSON-encode then percent-encode for safe transport
+    reasons: encodeURIComponent(JSON.stringify(reasons)),
+    officialUrl:     officialUrl     ?? '',
+    institutionName: institutionName ?? '',
+    lang,
+  });
+  return chrome.runtime.getURL('warning/warning.html') + '?' + params.toString();
 }
 
 // ---------------------------------------------------------------------------
@@ -163,16 +218,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     if (verdict === 'high') {
       // Full-page block: redirect the tab to the warning page, passing all
       // context as URL query parameters so warning.js can render them.
-      const params = new URLSearchParams({
-        url: tab.url,
-        score: String(score),
-        // reasons is an array — JSON-encode then percent-encode for safe transport
-        reasons: encodeURIComponent(JSON.stringify(reasons)),
-        officialUrl: officialUrl ?? '',
-        institutionName: institutionName ?? '',
-        lang: 'en',
-      });
-      const warningUrl = chrome.runtime.getURL('warning/warning.html') + '?' + params.toString();
+      const warningUrl = buildWarningUrl(tab.url, score, reasons, officialUrl, institutionName, 'en');
       chrome.tabs.update(tabId, { url: warningUrl });
 
     } else if (verdict === 'medium') {
@@ -244,6 +290,92 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     // Acknowledge the message; no action required at this stage.
     sendResponse({ ok: true });
     return false;
+  }
+
+  // ------------------------------------------------------------------
+  // PAGE_FEATURES — content script has extracted DOM signals for Layer 2.
+  // Combines the Layer 1 URL score with the Layer 2 content score and
+  // dispatches the appropriate UX response (badge / banner / full-page block).
+  // No sendResponse call — fire-and-forget async IIFE.
+  // ------------------------------------------------------------------
+  if (msg.type === 'PAGE_FEATURES') {
+    (async () => {
+      try {
+        const url   = msg.url;
+        const tabId = sender.tab?.id;
+        if (tabId == null) return;
+
+        // Respect any session override the user set for this hostname
+        if (await isOverridden(url)) return;
+
+        // Layer 1 — URL analysis
+        const l1 = await runAnalysis(url);
+
+        // If Layer 1 already cleared this as a verified institution, skip
+        // content scanning to avoid false positives on legitimate bank sites.
+        if (l1.verdict === 'safe' && l1.institutionName) return;
+
+        // Layer 2 — page content analysis
+        const keywords = await getDataFile('scam-keywords.json');
+        const l2 = analyzeContent(msg.features, { keywords, isPro: true });
+
+        // Combine scores (capped at 100) and merge reason lists
+        const combined = Math.min(100, l1.score + l2.score);
+
+        const seen = new Set(l1.reasons);
+        const mergedReasons = [...l1.reasons];
+        for (const r of l2.reasons) {
+          if (!seen.has(r)) {
+            seen.add(r);
+            mergedReasons.push(r);
+          }
+        }
+
+        // Derive band from the combined score, then escalate if either
+        // component verdict is higher (never downgrade the verdict).
+        let finalVerdict = bandOf(combined);
+        if (VERDICT_RANK[l1.verdict] > VERDICT_RANK[finalVerdict]) {
+          finalVerdict = l1.verdict;
+        }
+
+        // Dispatch UX response — mirrors the tabs.onUpdated handler exactly
+        if (finalVerdict === 'high') {
+          // Full-page block: navigate the tab to the warning page
+          const warningUrl = buildWarningUrl(
+            url, combined, mergedReasons,
+            l1.officialUrl ?? '', l1.institutionName ?? '', 'en'
+          );
+          chrome.tabs.update(tabId, { url: warningUrl });
+
+        } else if (finalVerdict === 'medium') {
+          // Persistent banner via the content script
+          try {
+            await chrome.tabs.sendMessage(tabId, {
+              type: 'SHOW_BANNER',
+              level: 'medium',
+              reasons: mergedReasons,
+              officialUrl: l1.officialUrl,
+              institutionName: l1.institutionName,
+            });
+          } catch (msgErr) {
+            // Content script not present on this page — silently ignore.
+            console.debug('CSS banner send failed (no content script?):', msgErr.message);
+          }
+
+        } else if (finalVerdict === 'low') {
+          // Subtle badge indicator on the extension icon for this tab
+          chrome.action.setBadgeText({ tabId, text: '!' });
+          chrome.action.setBadgeBackgroundColor({ tabId, color: '#E8A317' });
+
+        }
+        // finalVerdict === 'safe': no-op — leave the badge as-is
+
+      } catch (err) {
+        // A single PAGE_FEATURES failure must never crash the worker
+        console.error('CSS PAGE_FEATURES analysis error:', err);
+      }
+    })();
+    return false; // no sendResponse
   }
 
   // ------------------------------------------------------------------

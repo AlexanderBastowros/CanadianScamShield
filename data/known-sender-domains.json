@@ -1,0 +1,308 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2026-05-27",
+  "description": "Known legitimate sending and reply-to domains for the most-impersonated Canadian institutions. USE FOR MISMATCH DETECTION ONLY: if a message's visible identity claims to be 'org X' but its From/Reply-To domain is not in org X's set, that is a signal. Never use the inverse — a matching domain does not mean the email is legitimate, because From headers are trivially spoofable. Authentication (SPF/DKIM/DMARC) is the only reliable proof of sender, and is checked separately.",
+  "usage_notes": [
+    "sending_domains: domains the org's mail is observed to originate from (transactional, marketing, support).",
+    "reply_to_domains: domains seen in Reply-To headers — sometimes different from sending domains when ESPs are used.",
+    "These lists are NON-AUTHORITATIVE and will drift as orgs change marketing vendors. Treat as heuristic, not ground truth.",
+    "When matching, normalize to lowercase and strip subdomains down to the registrable domain (eTLD+1) before comparing — unless a specific subdomain is listed explicitly.",
+    "aliases: visible-name strings the org is commonly referred to as in scam display names ('CRA', 'Revenue Canada', etc.). Used by the display-name-vs-domain mismatch detector."
+  ],
+  "organizations": [
+    {
+      "id": "cra",
+      "name": "Canada Revenue Agency",
+      "category": "federal_government",
+      "aliases": ["CRA", "Canada Revenue Agency", "Revenue Canada", "ARC", "Agence du revenu du Canada", "Agence du revenu", "Canada Revenue", "CRA / ARC"],
+      "sending_domains": ["cra-arc.gc.ca", "canada.ca", "cra.gc.ca"],
+      "reply_to_domains": ["cra-arc.gc.ca", "canada.ca"],
+      "official_contact_url": "https://www.canada.ca/en/revenue-agency/corporate/contact-information.html",
+      "official_phone": "1-800-959-8281",
+      "notes": "CRA almost never initiates contact about refunds/benefits via email with action links. Legitimate CRA email typically directs users to log into My Account on canada.ca rather than including the action URL itself."
+    },
+    {
+      "id": "service_canada",
+      "name": "Service Canada",
+      "category": "federal_government",
+      "aliases": ["Service Canada", "Government of Canada", "Gouvernement du Canada"],
+      "sending_domains": ["servicecanada.gc.ca", "canada.ca"],
+      "reply_to_domains": ["servicecanada.gc.ca", "canada.ca"],
+      "official_contact_url": "https://www.canada.ca/en/employment-social-development/corporate/contact/contact-service-canada.html",
+      "official_phone": "1-800-622-6232"
+    },
+    {
+      "id": "ircc",
+      "name": "Immigration, Refugees and Citizenship Canada",
+      "category": "federal_government",
+      "aliases": ["IRCC", "Immigration Canada", "Citizenship and Immigration", "CIC", "Immigration, Refugees and Citizenship Canada"],
+      "sending_domains": ["cic.gc.ca", "ircc.canada.ca", "canada.ca"],
+      "reply_to_domains": ["cic.gc.ca", "ircc.canada.ca", "canada.ca"],
+      "official_contact_url": "https://www.canada.ca/en/immigration-refugees-citizenship/corporate/contact-ircc.html",
+      "notes": "Heavy impersonation target for newcomer scams. Real IRCC will never demand payment via gift cards, Bitcoin, or Interac e-Transfer."
+    },
+    {
+      "id": "cbsa",
+      "name": "Canada Border Services Agency",
+      "category": "federal_government",
+      "aliases": ["CBSA", "Border Services", "ASFC", "Agence des services frontaliers du Canada"],
+      "sending_domains": ["cbsa-asfc.gc.ca", "canada.ca"],
+      "reply_to_domains": ["cbsa-asfc.gc.ca", "canada.ca"],
+      "official_contact_url": "https://www.cbsa-asfc.gc.ca/contact/menu-eng.html",
+      "notes": "Scammers impersonate CBSA claiming intercepted packages or warrants. Real CBSA does not call demanding payment."
+    },
+    {
+      "id": "rcmp",
+      "name": "Royal Canadian Mounted Police",
+      "category": "law_enforcement",
+      "aliases": ["RCMP", "Royal Canadian Mounted Police", "GRC", "Gendarmerie royale du Canada"],
+      "sending_domains": ["rcmp-grc.gc.ca", "canada.ca"],
+      "reply_to_domains": ["rcmp-grc.gc.ca"],
+      "official_contact_url": "https://www.rcmp-grc.gc.ca/en/contact-us",
+      "notes": "Police forces in Canada do not email demanding payment, fines, or threatening arrest. Any such email is a scam."
+    },
+    {
+      "id": "canada_post",
+      "name": "Canada Post",
+      "category": "shipping",
+      "aliases": ["Canada Post", "Postes Canada", "CanadaPost", "Canada Post Corporation"],
+      "sending_domains": ["canadapost-postescanada.ca", "canadapost.ca", "email.canadapost.ca", "notification.canadapost.ca"],
+      "reply_to_domains": ["canadapost-postescanada.ca", "canadapost.ca"],
+      "official_contact_url": "https://www.canadapost-postescanada.ca/cpc/en/support/kb/contact-us.page",
+      "official_phone": "1-866-607-6301",
+      "notes": "The 'package undeliverable, pay small fee' scam is one of the top SMS/email scams in Canada. Canada Post will never request payment via SMS link for re-delivery fees."
+    },
+    {
+      "id": "interac",
+      "name": "Interac Corp.",
+      "category": "payments",
+      "aliases": ["Interac", "Interac e-Transfer", "INTERAC"],
+      "sending_domains": ["interac.ca", "payments.interac.ca", "notify.payments.interac.ca"],
+      "reply_to_domains": ["interac.ca", "payments.interac.ca"],
+      "official_contact_url": "https://www.interac.ca/en/contact/",
+      "notes": "Real Interac e-Transfer notifications come from notify.payments.interac.ca. Scams use lookalike domains like 'interac-etransfer.com' or 'interac-payments.ca'. Interac itself does not request your banking login — your bank handles authentication."
+    },
+    {
+      "id": "rbc",
+      "name": "Royal Bank of Canada",
+      "category": "bank",
+      "aliases": ["RBC", "Royal Bank", "Royal Bank of Canada", "RBC Royal Bank"],
+      "sending_domains": ["rbc.com", "rbcroyalbank.com", "royalbank.com", "email.rbc.com", "mailer.rbc.com", "mail.rbcrewards.com"],
+      "reply_to_domains": ["rbc.com", "rbcroyalbank.com"],
+      "official_contact_url": "https://www.rbcroyalbank.com/contact-us/index.html",
+      "official_phone": "1-800-769-2511"
+    },
+    {
+      "id": "td",
+      "name": "TD Bank Group",
+      "category": "bank",
+      "aliases": ["TD", "TD Bank", "TD Canada Trust", "TD Bank Group"],
+      "sending_domains": ["td.com", "tdcanadatrust.com", "email.td.com", "mail.td.com", "tdbank.com"],
+      "reply_to_domains": ["td.com", "tdcanadatrust.com"],
+      "official_contact_url": "https://www.td.com/ca/en/personal-banking/contact-us",
+      "official_phone": "1-866-222-3456"
+    },
+    {
+      "id": "scotiabank",
+      "name": "Scotiabank",
+      "category": "bank",
+      "aliases": ["Scotiabank", "Scotia", "Bank of Nova Scotia", "BNS"],
+      "sending_domains": ["scotiabank.com", "email.scotiabank.com", "mail.scotiabank.com"],
+      "reply_to_domains": ["scotiabank.com"],
+      "official_contact_url": "https://www.scotiabank.com/ca/en/personal/contact-us.html",
+      "official_phone": "1-800-472-6842"
+    },
+    {
+      "id": "bmo",
+      "name": "Bank of Montreal",
+      "category": "bank",
+      "aliases": ["BMO", "Bank of Montreal", "BMO Bank of Montreal", "BMO Harris"],
+      "sending_domains": ["bmo.com", "email.bmo.com", "mail.bmo.com", "bmoharris.com"],
+      "reply_to_domains": ["bmo.com"],
+      "official_contact_url": "https://www.bmo.com/main/personal/contact-us/",
+      "official_phone": "1-877-225-5266"
+    },
+    {
+      "id": "cibc",
+      "name": "CIBC",
+      "category": "bank",
+      "aliases": ["CIBC", "Canadian Imperial Bank of Commerce"],
+      "sending_domains": ["cibc.com", "email.cibc.com", "mail.cibc.com", "ecom.cibc.com"],
+      "reply_to_domains": ["cibc.com"],
+      "official_contact_url": "https://www.cibc.com/en/personal-banking/customer-services/contact-us.html",
+      "official_phone": "1-800-465-2422"
+    },
+    {
+      "id": "national_bank",
+      "name": "National Bank of Canada",
+      "category": "bank",
+      "aliases": ["National Bank", "National Bank of Canada", "NBC", "Banque Nationale", "Banque Nationale du Canada", "BNC"],
+      "sending_domains": ["nbc.ca", "bnc.ca", "email.nbc.ca"],
+      "reply_to_domains": ["nbc.ca", "bnc.ca"],
+      "official_contact_url": "https://www.nbc.ca/personal/contact.html",
+      "official_phone": "1-888-835-6281"
+    },
+    {
+      "id": "desjardins",
+      "name": "Desjardins Group",
+      "category": "credit_union",
+      "aliases": ["Desjardins", "Desjardins Group", "Mouvement Desjardins", "Caisse Desjardins"],
+      "sending_domains": ["desjardins.com", "email.desjardins.com"],
+      "reply_to_domains": ["desjardins.com"],
+      "official_contact_url": "https://www.desjardins.com/ca/contact-us/index.jsp",
+      "official_phone": "1-800-224-7737"
+    },
+    {
+      "id": "tangerine",
+      "name": "Tangerine Bank",
+      "category": "bank",
+      "aliases": ["Tangerine", "Tangerine Bank"],
+      "sending_domains": ["tangerine.ca", "email.tangerine.ca"],
+      "reply_to_domains": ["tangerine.ca"],
+      "official_contact_url": "https://www.tangerine.ca/en/contact-us/",
+      "official_phone": "1-888-826-4374"
+    },
+    {
+      "id": "simplii",
+      "name": "Simplii Financial",
+      "category": "bank",
+      "aliases": ["Simplii", "Simplii Financial"],
+      "sending_domains": ["simplii.com", "email.simplii.com"],
+      "reply_to_domains": ["simplii.com"],
+      "official_contact_url": "https://www.simplii.com/en/customer-care.html",
+      "official_phone": "1-888-723-8881"
+    },
+    {
+      "id": "amex_ca",
+      "name": "American Express Canada",
+      "category": "bank",
+      "aliases": ["American Express", "Amex", "American Express Canada"],
+      "sending_domains": ["americanexpress.ca", "americanexpress.com", "welcome.americanexpress.com", "member.americanexpress.com"],
+      "reply_to_domains": ["americanexpress.ca", "americanexpress.com"],
+      "official_contact_url": "https://www.americanexpress.com/ca/en/customer-service/",
+      "official_phone": "1-800-869-3016"
+    },
+    {
+      "id": "paypal",
+      "name": "PayPal",
+      "category": "payments",
+      "aliases": ["PayPal"],
+      "sending_domains": ["paypal.com", "paypal.ca", "e.paypal.com", "service.paypal.com"],
+      "reply_to_domains": ["paypal.com"],
+      "official_contact_url": "https://www.paypal.com/ca/smarthelp/contact-us",
+      "notes": "Common scam: fake PayPal invoice from invoice@paypal-secure.com or similar. Real PayPal invoices come from service@paypal.com and the only safe action is logging in to paypal.com directly."
+    },
+    {
+      "id": "wealthsimple",
+      "name": "Wealthsimple",
+      "category": "payments",
+      "aliases": ["Wealthsimple", "Wealthsimple Trade", "Wealthsimple Cash", "Wealthsimple Tax"],
+      "sending_domains": ["wealthsimple.com", "email.wealthsimple.com"],
+      "reply_to_domains": ["wealthsimple.com"],
+      "official_contact_url": "https://help.wealthsimple.com/hc/en-ca"
+    },
+    {
+      "id": "bell",
+      "name": "Bell Canada",
+      "category": "telecom",
+      "aliases": ["Bell", "Bell Canada", "Bell Mobility"],
+      "sending_domains": ["bell.ca", "email.bell.ca", "info.bell.ca", "bellmobility.ca"],
+      "reply_to_domains": ["bell.ca"],
+      "official_contact_url": "https://www.bell.ca/Contact_us",
+      "official_phone": "1-800-668-6878"
+    },
+    {
+      "id": "rogers",
+      "name": "Rogers Communications",
+      "category": "telecom",
+      "aliases": ["Rogers", "Rogers Communications", "Rogers Wireless"],
+      "sending_domains": ["rogers.com", "email.rogers.com", "mail.rogers.com"],
+      "reply_to_domains": ["rogers.com"],
+      "official_contact_url": "https://www.rogers.com/contactus",
+      "official_phone": "1-888-764-3771"
+    },
+    {
+      "id": "telus",
+      "name": "TELUS",
+      "category": "telecom",
+      "aliases": ["TELUS", "Telus", "TELUS Mobility"],
+      "sending_domains": ["telus.com", "email.telus.com", "mail.telus.com"],
+      "reply_to_domains": ["telus.com"],
+      "official_contact_url": "https://www.telus.com/en/support/contact-us",
+      "official_phone": "1-866-558-2273"
+    },
+    {
+      "id": "amazon_ca",
+      "name": "Amazon Canada",
+      "category": "retail",
+      "aliases": ["Amazon", "Amazon.ca", "Amazon Canada", "Amazon Customer Service"],
+      "sending_domains": ["amazon.ca", "amazon.com", "marketplace.amazon.ca", "marketplace.amazon.com", "order-update.amazon.ca", "order-update.amazon.com", "shipment-tracking.amazon.ca", "shipment-tracking.amazon.com"],
+      "reply_to_domains": ["amazon.ca", "amazon.com"],
+      "official_contact_url": "https://www.amazon.ca/gp/help/contact-us",
+      "notes": "Real Amazon order emails come from order-update.amazon.ca or shipment-tracking.amazon.ca. Scams use 'amazonsupport-help.com' and similar. Amazon never asks for gift-card payment to resolve an account issue."
+    },
+    {
+      "id": "best_buy_ca",
+      "name": "Best Buy Canada",
+      "category": "retail",
+      "aliases": ["Best Buy", "Best Buy Canada"],
+      "sending_domains": ["bestbuy.ca", "email.bestbuy.ca", "bestbuy.com"],
+      "reply_to_domains": ["bestbuy.ca"]
+    },
+    {
+      "id": "geek_squad",
+      "name": "Geek Squad Canada",
+      "category": "tech_support",
+      "aliases": ["Geek Squad", "Geek Squad Canada", "Geeksquad", "Geek Squad Tech Support"],
+      "sending_domains": ["geeksquad.ca", "geeksquad.com", "bestbuy.ca"],
+      "reply_to_domains": ["geeksquad.ca", "bestbuy.ca"],
+      "official_contact_url": "https://www.geeksquad.ca/en-ca/contact-us",
+      "notes": "The 'Geek Squad subscription renewal' email is one of the most-reported Canadian scams. Real Geek Squad does not send invoices for $399.99 demanding a call to dispute. Any 'renewal' email asking you to call a number to cancel is a scam."
+    },
+    {
+      "id": "norton",
+      "name": "Norton (Gen Digital)",
+      "category": "tech_support",
+      "aliases": ["Norton", "Norton LifeLock", "NortonLifeLock", "Norton 360", "Symantec"],
+      "sending_domains": ["norton.com", "nortonlifelock.com", "gendigital.com", "email.norton.com"],
+      "reply_to_domains": ["norton.com"],
+      "notes": "Like Geek Squad, 'Norton subscription renewal' invoice scams are common. Real Norton billing comes from norton.com, never from gmail/outlook addresses."
+    },
+    {
+      "id": "mcafee",
+      "name": "McAfee",
+      "category": "tech_support",
+      "aliases": ["McAfee", "McAfee Antivirus", "McAfee Total Protection"],
+      "sending_domains": ["mcafee.com", "email.mcafee.com"],
+      "reply_to_domains": ["mcafee.com"],
+      "notes": "Mirror of the Norton/Geek Squad pattern — fake renewal invoices with a call-back number are the dominant scam template."
+    },
+    {
+      "id": "microsoft",
+      "name": "Microsoft",
+      "category": "tech",
+      "aliases": ["Microsoft", "Microsoft Support", "Microsoft Account Team", "Outlook"],
+      "sending_domains": ["microsoft.com", "accountprotection.microsoft.com", "email.microsoft.com", "outlook.com"],
+      "reply_to_domains": ["microsoft.com"],
+      "notes": "Microsoft never cold-calls about a virus on your PC. Microsoft account-security emails come from accountprotection.microsoft.com."
+    },
+    {
+      "id": "apple",
+      "name": "Apple",
+      "category": "tech",
+      "aliases": ["Apple", "Apple Support", "Apple ID", "iCloud"],
+      "sending_domains": ["apple.com", "email.apple.com", "insideicloud.icloud.com", "id.apple.com"],
+      "reply_to_domains": ["apple.com"],
+      "notes": "Apple ID 'account locked' emails are heavily spoofed. Real Apple messages do not threaten account deletion within 24 hours."
+    },
+    {
+      "id": "netflix",
+      "name": "Netflix",
+      "category": "streaming",
+      "aliases": ["Netflix"],
+      "sending_domains": ["netflix.com", "mailer.netflix.com", "members.netflix.com"],
+      "reply_to_domains": ["netflix.com"],
+      "notes": "'Your Netflix payment failed, update card' is one of the most common phishing templates worldwide."
+    }
+  ]
+}

@@ -1,7 +1,8 @@
 /**
  * scripts/smoke-test.mjs
  *
- * Runnable Node.js smoke test for lib/homoglyph.js and lib/url-analyzer.js.
+ * Runnable Node.js smoke test for lib/homoglyph.js, lib/url-analyzer.js,
+ * and lib/content-analyzer.js.
  * No test framework required — run with:
  *   node scripts/smoke-test.mjs
  *
@@ -10,6 +11,7 @@
 
 import { normalizeHomoglyphs, levenshtein, isDomainLookalike } from '../lib/homoglyph.js';
 import { analyzeUrl } from '../lib/url-analyzer.js';
+import { analyzeContent } from '../lib/content-analyzer.js';
 
 // ---------------------------------------------------------------------------
 // Inline fixtures
@@ -178,6 +180,204 @@ assert(
   analyzeUrl('https://evil-scam-example.tk', { whitelist, knownBad }).verdict,
   'high'
 );
+
+// ---------------------------------------------------------------------------
+// analyzeContent tests
+// ---------------------------------------------------------------------------
+
+// Inline keywords fixture — small but representative, mirrors scam-keywords.json schema.
+const keywords = {
+  categories: {
+    impersonation_terms: {
+      weight: 15,
+      cap: 45,
+      terms: ['CRA', 'Canada Revenue Agency', 'GST/HST refund', 'tax refund'],
+      terms_fr: [],
+    },
+    urgency_triggers: {
+      weight: 20,
+      cap: 40,
+      terms: ['within 24 hours', 'final notice'],
+      terms_fr: [],
+    },
+    payment_red_flags: {
+      weight: 30,
+      cap: 60,
+      terms: ['gift card', 'Bitcoin'],
+      terms_fr: [],
+    },
+    credential_harvesting: {
+      weight: 25,
+      structural: true,
+      sin_terms: [
+        'sin',
+        'social insurance',
+        'social insurance number',
+        'nas',
+        "numéro d'assurance sociale",
+        'assurance sociale',
+      ],
+      cvv_terms: ['cvv', 'cvc', 'card verification', 'security code'],
+      gov_suffixes: ['.gc.ca', '.canada.ca'],
+    },
+  },
+};
+
+// ── Case 1: CRA refund + gift card + "within 24 hours" on a scam portal ─────
+// Expected: at least 'medium'; categoriesHit must include impersonation_terms
+// and payment_red_flags.
+// Scoring: impersonation = 15 (CRA) + 15 (tax refund) = 30
+//          urgency = 20 (within 24 hours)
+//          payment = 30 (gift card)
+//          total = 80 → 'high'
+{
+  const result = analyzeContent(
+    {
+      title: 'CRA Refund Portal',
+      metaDescription: '',
+      text: 'You have a tax refund waiting. Purchase a gift card within 24 hours.',
+      isHttps: true,
+      url: 'https://refund-portal.example.com',
+      fields: [],
+    },
+    { keywords, isPro: true },
+  );
+
+  // Verdict must be 'medium' or 'high'
+  assert(
+    "analyzeContent CRA+giftCard+24h → verdict 'medium' or 'high'",
+    result.verdict === 'medium' || result.verdict === 'high',
+    true,
+  );
+  assert(
+    "analyzeContent CRA+giftCard+24h → categoriesHit includes 'impersonation_terms'",
+    result.categoriesHit.includes('impersonation_terms'),
+    true,
+  );
+  assert(
+    "analyzeContent CRA+giftCard+24h → categoriesHit includes 'payment_red_flags'",
+    result.categoriesHit.includes('payment_red_flags'),
+    true,
+  );
+}
+
+// ── Case 2: Benign marketing copy, no fields ──────────────────────────────────
+// Expected: verdict 'safe', score 0, categoriesHit empty
+{
+  const result = analyzeContent(
+    {
+      title: 'Welcome to our store',
+      metaDescription: 'Great deals every day',
+      text: 'Buy our products today. Free shipping on orders over fifty dollars. No hidden fees.',
+      isHttps: true,
+      url: 'https://example.com',
+      fields: [],
+    },
+    { keywords, isPro: true },
+  );
+
+  assert("analyzeContent benign → verdict 'safe'",    result.verdict,                'safe');
+  assert('analyzeContent benign → score 0',           result.score,                  0);
+  assert('analyzeContent benign → categoriesHit empty', result.categoriesHit.length, 0);
+}
+
+// ── Case 3: SIN field — Pro gate ─────────────────────────────────────────────
+// The field has name:'sin' and labelText:'Social Insurance Number' on a non-gov host.
+// With isPro:true  → credential weight added, reason mentions "Social Insurance".
+// With isPro:false → nothing added.
+{
+  const sinField = { name: 'sin', type: 'text', labelText: 'Social Insurance Number' };
+  const sinFeatures = {
+    title: '',
+    metaDescription: '',
+    text: '',
+    isHttps: true,
+    url: 'https://refund-portal.example.com',
+    fields: [sinField],
+  };
+
+  const proResult   = analyzeContent(sinFeatures, { keywords, isPro: true });
+  const freeResult  = analyzeContent(sinFeatures, { keywords, isPro: false });
+
+  // Pro: credential weight (25) must appear in the score
+  assert(
+    'analyzeContent SIN field, isPro:true → score includes credential weight (≥ 25)',
+    proResult.score >= 25,
+    true,
+  );
+  assert(
+    "analyzeContent SIN field, isPro:true → reason mentions 'Social Insurance'",
+    proResult.reasons.some(r => r.includes('Social Insurance')),
+    true,
+  );
+
+  // Free: no SIN signal
+  assert(
+    'analyzeContent SIN field, isPro:false → score 0',
+    freeResult.score,
+    0,
+  );
+}
+
+// ── Case 4: Substring guard — "crap" must not match "CRA"; "casino" must not match "sin"
+// The text must produce verdict 'safe' with no categories fired.
+{
+  const result = analyzeContent(
+    {
+      title: '',
+      metaDescription: '',
+      text: 'the crap hit the fan, what a casino',
+      isHttps: true,
+      url: 'https://example.com',
+      fields: [],
+    },
+    { keywords, isPro: true },
+  );
+
+  assert(
+    "analyzeContent substring guard 'crap'/'casino' → verdict 'safe'",
+    result.verdict,
+    'safe',
+  );
+  assert(
+    "analyzeContent substring guard → categoriesHit empty",
+    result.categoriesHit.length,
+    0,
+  );
+}
+
+// ── Case 5: Password field — only fires when isHttps is false ────────────────
+{
+  const pwField = { type: 'password' };
+
+  const httpResult  = analyzeContent(
+    { title: '', metaDescription: '', text: '', isHttps: false, url: 'http://example.com',  fields: [pwField] },
+    { keywords, isPro: true },
+  );
+  const httpsResult = analyzeContent(
+    { title: '', metaDescription: '', text: '', isHttps: true,  url: 'https://example.com', fields: [pwField] },
+    { keywords, isPro: true },
+  );
+
+  // Over HTTP: credential weight is added (score ≥ 25)
+  assert(
+    'analyzeContent password over HTTP (isHttps:false) → score includes credential weight (≥ 25)',
+    httpResult.score >= 25,
+    true,
+  );
+  assert(
+    "analyzeContent password over HTTP → categoriesHit includes 'credential_harvesting'",
+    httpResult.categoriesHit.includes('credential_harvesting'),
+    true,
+  );
+
+  // Over HTTPS: no credential signal, score 0
+  assert(
+    'analyzeContent password over HTTPS (isHttps:true) → score 0',
+    httpsResult.score,
+    0,
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Summary

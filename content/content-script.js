@@ -6,7 +6,8 @@
  *
  * Responsibilities:
  *   1. Notify the service worker that a page has loaded (PAGE_LOAD).
- *   2. Listen for SHOW_BANNER messages from the service worker and inject an
+ *   2. Extract page features for Layer 2 content analysis (PAGE_FEATURES).
+ *   3. Listen for SHOW_BANNER messages from the service worker and inject an
  *      accessible, keyboard-navigable warning banner into the page.
  *
  * MV3 / content-script constraints:
@@ -29,7 +30,125 @@
 })();
 
 // ---------------------------------------------------------------------------
-// 2. Listen for SHOW_BANNER messages from the service worker
+// 2. Layer 2 — extract page features and send to the service worker
+// ---------------------------------------------------------------------------
+
+/**
+ * extractPageFeatures()
+ *
+ * Collects lightweight signals from the current page DOM for Layer 2 content
+ * analysis.  Runs only in the top-level frame so iframes don't contribute
+ * duplicate or misleading data.
+ *
+ * Returns a features object on success, or null if called from a sub-frame or
+ * if an unexpected error occurs (we must never throw into the host page).
+ *
+ * @returns {{
+ *   title: string,
+ *   metaDescription: string,
+ *   text: string,
+ *   isHttps: boolean,
+ *   url: string,
+ *   fields: Array<{name:string, id:string, placeholder:string, type:string, autocomplete:string, labelText:string}>
+ * }|null}
+ */
+function extractPageFeatures() {
+  // Only run in the top-level frame — iframes are not our analysis target
+  if (window.top !== window) return null;
+
+  try {
+    // ── Collect form fields (up to 80) ─────────────────────────────────────
+    var fields = [];
+    var fieldEls = document.querySelectorAll('input, select, textarea');
+    var maxFields = Math.min(fieldEls.length, 80);
+
+    for (var i = 0; i < maxFields; i++) {
+      var el = fieldEls[i];
+
+      // Resolve the associated label text
+      var labelText = '';
+      if (el.id) {
+        // Explicit <label for="..."> association
+        var labelEl = document.querySelector('label[for="' + CSS.escape(el.id) + '"]');
+        if (labelEl) labelText = labelEl.textContent;
+      }
+      if (!labelText) {
+        // Implicit label wrapping the element
+        var closestLabel = el.closest('label');
+        if (closestLabel) labelText = closestLabel.textContent;
+      }
+      // Trim and collapse internal whitespace; cap at 120 characters
+      labelText = labelText.trim().replace(/\s+/g, ' ').slice(0, 120);
+
+      var descriptor = {
+        name:         el.name         || '',
+        id:           el.id           || '',
+        placeholder:  el.placeholder  || '',
+        type:         (el.type        || 'text').toLowerCase(),
+        autocomplete: (el.autocomplete || '').toLowerCase(),
+        labelText:    labelText,
+      };
+
+      // Only include fields that carry at least one non-empty descriptor;
+      // bare <input type="hidden"> elements with no labels are not useful.
+      var hasSignal =
+        descriptor.name         !== '' ||
+        descriptor.id           !== '' ||
+        descriptor.placeholder  !== '' ||
+        descriptor.autocomplete !== '' ||
+        descriptor.labelText    !== '';
+
+      if (hasSignal) fields.push(descriptor);
+    }
+
+    return {
+      title:           (document.title || '').slice(0, 300),
+      metaDescription: (document.querySelector('meta[name="description"]')?.content || '').slice(0, 500),
+      text:            (document.body?.innerText || '').slice(0, 30000),
+      isHttps:         location.protocol === 'https:',
+      url:             location.href,
+      fields:          fields,
+    };
+  } catch (e) {
+    // Something unexpected failed — never propagate errors to the host page
+    return null;
+  }
+}
+
+/**
+ * sendFeatures()
+ *
+ * Calls extractPageFeatures() and, if successful, sends the result to the
+ * service worker as a PAGE_FEATURES message.  Wrapped in try/catch to
+ * survive extension-context unavailability.
+ */
+function sendFeatures() {
+  // Guard: only the top frame sends features
+  if (window.top !== window) return;
+
+  try {
+    var f = extractPageFeatures();
+    if (f) {
+      chrome.runtime.sendMessage({ type: 'PAGE_FEATURES', url: location.href, features: f });
+    }
+  } catch (e) {
+    // Extension context unavailable or message channel closed — safe to ignore
+  }
+}
+
+// Schedule feature extraction after the page is idle so we never block
+// rendering.  requestIdleCallback is preferred; setTimeout(0) is the fallback
+// for environments that don't support it (e.g. some older WebViews).
+if (window.top === window) {
+  if (typeof requestIdleCallback === 'function') {
+    requestIdleCallback(sendFeatures, { timeout: 2000 });
+  } else {
+    setTimeout(sendFeatures, 0);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 3. Listen for SHOW_BANNER messages from the service worker
 // ---------------------------------------------------------------------------
 
 chrome.runtime.onMessage.addListener(function (msg) {
@@ -39,7 +158,7 @@ chrome.runtime.onMessage.addListener(function (msg) {
 });
 
 // ---------------------------------------------------------------------------
-// 3. Banner injection
+// 4. Banner injection
 // ---------------------------------------------------------------------------
 
 /**

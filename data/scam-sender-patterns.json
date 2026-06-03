@@ -1,0 +1,487 @@
+{
+  "version": "1.1.0",
+  "last_updated": "2026-05-27",
+  "description": "Rule-based scam detection patterns for email and SMS analysis. v1.1 updated from research against r/Scams, CAFC bulletins, news reports of active Canadian scam campaigns, and real sample emails (2024-2026). The analyzer evaluates each rule against a parsed message and accumulates weighted scores. Rules are intentionally narrow and composable — a real scam typically trips 3-5 rules, while a legitimate message trips 0-1.",
+  "sources": [
+    "Canadian Anti-Fraud Centre bulletins 2024-2026",
+    "r/Scams subreddit samples (Geek Squad, CRA, Canada Post)",
+    "407 ETR fraud awareness bulletins (1,100+ impersonation domains taken down in 2025)",
+    "Alberta government affordability-text scam alerts",
+    "CBC Go Public e-Transfer fraud reporting",
+    "University of Waterloo / Guelph CRA student-targeting samples"
+  ],
+  "scoring": {
+    "thresholds": {
+      "low": 30,
+      "medium": 55,
+      "high": 80
+    },
+    "max_score": 100,
+    "notes": "Total score is capped at 100. Below 'low', no warning. Between low-medium, subtle indicator. Between medium-high, persistent warning banner. Above 'high', full-page block with override required. Tune in user-facing 'Strict / Balanced / Permissive' setting by shifting thresholds ±15."
+  },
+  "rule_types": {
+    "display_name_domain_mismatch": "The display name in From claims an org but the address domain isn't in that org's known_sender_domains (cross-reference known-sender-domains.json).",
+    "free_provider_claiming_institution": "Address is on a free email provider (gmail, outlook, yahoo, proton, hotmail, etc.) but display name or body claims to represent a bank, government agency, or major institution.",
+    "domain_lookalike": "Sender domain is a typo/homoglyph/Levenshtein variant of a known institution domain.",
+    "suspicious_tld": "Sender domain uses a high-abuse TLD (.xyz, .top, .click, .live, .vip, etc.) while claiming institutional identity.",
+    "suspicious_subdomain_chain": "Sender domain has many subdomains used to hide the real registrable domain (e.g., 'cra.gc.ca.refund.xyz').",
+    "punycode_domain": "Sender domain uses punycode (xn--) — almost never legitimate for institutional mail.",
+    "reply_to_mismatch": "Reply-To domain differs from From domain in a way that suggests a forward-mail trick.",
+    "urgency_language": "Body contains urgency triggers: 'within 24 hours', 'immediate action required', 'account will be suspended', 'final notice', 'warrant', 'arrest'.",
+    "payment_red_flag": "Body requests payment via gift cards (iTunes, Google Play, Amazon, Steam), cryptocurrency, Interac e-Transfer to an individual, wire transfer, or prepaid cards.",
+    "credential_request": "Body asks for SIN, full credit card number, banking login, CVV, online banking password, or one-time code.",
+    "callback_number_in_invoice": "Body presents a high-dollar charge and instructs the reader to call a phone number to dispute. Hallmark of Geek Squad/Norton/McAfee scams.",
+    "link_text_url_mismatch": "Visible link text shows one domain but href points elsewhere (e.g., 'rbc.com' linking to 'rbc-secure-login.com').",
+    "shortened_link_to_institution": "Body uses a URL shortener (bit.ly, tinyurl, t.co, goo.gl) for what claims to be an institutional link.",
+    "ip_address_link": "A link points to a raw IP address rather than a domain.",
+    "attachment_with_executable": "Message has an attachment with executable or scripting extension (.exe, .scr, .vbs, .js, .iso, .lnk, password-protected .zip).",
+    "html_form_in_email": "Email body contains an HTML <form> element requesting credentials — legitimate orgs link to their site, they don't embed forms.",
+    "sin_request": "Body explicitly asks for Social Insurance Number — no legitimate Canadian institution requests SIN via email.",
+    "etransfer_to_individual": "Body instructs sending Interac e-Transfer to a personal-looking email address rather than to a recipient identifiable as the org.",
+    "auth_header_failure": "Parsed authentication-results header shows SPF, DKIM, or DMARC failure for a claimed institutional sender. Strongest single signal when present.",
+    "language_mix_anomaly": "Mixing of English/French in a way characteristic of automated translation — common in scams targeting bilingual Canada from non-Canadian operators. Defined for future use; no rule currently references it.",
+    "recent_registration": "Sender domain registered within the last 90 days. Defined for future use; no rule currently references it because it requires WHOIS lookup integration.",
+    "imessage_evasion_pattern": "Body contains the 'reply Y, then exit and re-open the message to activate the link' trick. Apple disables links in iMessage from unknown senders; this pattern exists solely to defeat that protection and is a near-certain scam signal.",
+    "toll_road_smishing": "SMS or email claims unpaid toll, threatens license/registration suspension, links to non-official domain. Top-volume Canadian scam category as of 2025-2026.",
+    "license_revocation_threat": "Message threatens revocation/suspension of driver's licence, vehicle registration, or denial of plate renewal by ServiceOntario or equivalent. Used in toll, parking, and traffic-ticket scams.",
+    "sin_disclosure_in_message": "The message ITSELF contains the recipient's SIN (typically the last 3 digits or full SIN) used as a manufactured proof of legitimacy. CAFC reported this pattern in 2024 — confirms the sender has access to leaked data, but legitimate CRA messages do not include SIN in transactional text.",
+    "ai_generated_indicators": "Generic AI tells: perfect grammar despite institutional impersonation, em-dashes used in transactional text, 'I hope this message finds you well' openings, unusually polished language combined with other red flags. NOT diagnostic on its own — only used as a tiebreaker.",
+    "etransfer_loading_screen_phish": "Page or message references an e-Transfer 'loading' screen or 'processing... do not refresh' messaging combined with a request to log into a bank. Pattern from active 2025 Canadian e-Transfer interception scams.",
+    "package_redelivery_fee": "Message claims a package can't be delivered without paying a small fee ($1-$5 typical) via a link. Canada Post / Purolator / FedEx variant — Canada Post explicitly does not use this pattern.",
+    "auto_renewal_callback_combo": "Combined fingerprint: 'auto-renewed' or 'subscription' or 'order settled' + a callback phone number + dollar amount. Almost 100% diagnostic of the Best Buy/Geek Squad/Norton invoice scam.",
+    "fake_2fa_security_alert": "Message claims 'unusual sign-in', 'verify your account', 'someone logged in from [location]' with a link to 'secure your account'. Modern account-takeover phishing template.",
+    "alberta_affordability_scam": "Claims to be from Government of Alberta offering an affordability/energy rebate registration via link. Confirmed scam pattern flagged by the Alberta government.",
+    "concession_a25_scam": "Claims to be Concession A25 toll bridge (Laval-Montréal) with payment link. Real A25 communications go through a25.com."
+  },
+  "rules": [
+    {
+      "id": "cra_free_provider",
+      "type": "free_provider_claiming_institution",
+      "weight": 45,
+      "description": "Address is gmail/outlook/yahoo/etc. but display name or body references CRA, Revenue Canada, or ARC.",
+      "match": {
+        "from_domain_in": ["gmail.com", "outlook.com", "hotmail.com", "yahoo.com", "yahoo.ca", "live.com", "live.ca", "icloud.com", "proton.me", "protonmail.com", "aol.com", "mail.com", "gmx.com", "zoho.com", "yandex.com"],
+        "body_or_display_contains_any": ["CRA", "Canada Revenue", "Revenue Canada", "ARC", "Agence du revenu", "GST/HST refund", "tax refund"]
+      },
+      "user_explanation": "The Canada Revenue Agency does not send email from Gmail, Outlook, or any free email provider."
+    },
+    {
+      "id": "service_canada_free_provider",
+      "type": "free_provider_claiming_institution",
+      "weight": 45,
+      "description": "Free-provider sender claiming Service Canada.",
+      "match": {
+        "from_domain_in": ["gmail.com", "outlook.com", "hotmail.com", "yahoo.com", "yahoo.ca", "live.com", "live.ca", "icloud.com", "proton.me", "protonmail.com"],
+        "body_or_display_contains_any": ["Service Canada", "Gouvernement du Canada"]
+      },
+      "user_explanation": "Service Canada does not use free email services."
+    },
+    {
+      "id": "ircc_free_provider",
+      "type": "free_provider_claiming_institution",
+      "weight": 50,
+      "description": "Free-provider sender claiming IRCC / Immigration Canada — common newcomer scam.",
+      "match": {
+        "from_domain_in": ["gmail.com", "outlook.com", "hotmail.com", "yahoo.com", "yahoo.ca", "live.com", "icloud.com", "proton.me", "protonmail.com"],
+        "body_or_display_contains_any": ["IRCC", "Immigration Canada", "Citizenship and Immigration", "visa application", "permanent resident", "PR card", "study permit", "work permit"]
+      },
+      "user_explanation": "IRCC communicates through your online account at canada.ca, not from free email addresses. Newcomers are heavily targeted by this scam."
+    },
+    {
+      "id": "bank_free_provider",
+      "type": "free_provider_claiming_institution",
+      "weight": 50,
+      "description": "Free-provider sender claiming a Canadian bank.",
+      "match": {
+        "from_domain_in": ["gmail.com", "outlook.com", "hotmail.com", "yahoo.com", "yahoo.ca", "live.com", "icloud.com", "proton.me", "protonmail.com", "aol.com"],
+        "body_or_display_contains_any": ["RBC", "Royal Bank", "TD Bank", "TD Canada Trust", "Scotiabank", "BMO", "Bank of Montreal", "CIBC", "National Bank", "HSBC Canada", "Tangerine", "Simplii", "Desjardins"]
+      },
+      "user_explanation": "Canadian banks never send account communications from free email providers like Gmail or Outlook."
+    },
+    {
+      "id": "interac_free_provider",
+      "type": "free_provider_claiming_institution",
+      "weight": 40,
+      "description": "Free-provider sender claiming Interac e-Transfer.",
+      "match": {
+        "from_domain_in": ["gmail.com", "outlook.com", "hotmail.com", "yahoo.com", "yahoo.ca", "icloud.com", "proton.me", "protonmail.com"],
+        "body_or_display_contains_any": ["Interac", "INTERAC", "e-Transfer", "e-transfer", "Interac e-Transfer"]
+      },
+      "user_explanation": "Interac e-Transfer notifications come from notify.payments.interac.ca, never from Gmail or other free providers."
+    },
+    {
+      "id": "police_free_provider",
+      "type": "free_provider_claiming_institution",
+      "weight": 60,
+      "description": "Free-provider sender claiming RCMP or police force — almost always sextortion or fake-warrant scam.",
+      "match": {
+        "from_domain_in": ["gmail.com", "outlook.com", "hotmail.com", "yahoo.com", "icloud.com", "proton.me", "protonmail.com"],
+        "body_or_display_contains_any": ["RCMP", "Royal Canadian Mounted Police", "GRC", "Toronto Police", "Sûreté du Québec", "warrant for your arrest", "criminal investigation"]
+      },
+      "user_explanation": "Canadian police forces do not contact people via Gmail or other free email providers. Any 'warrant' or 'investigation' email is a scam."
+    },
+    {
+      "id": "cra_suspicious_tld",
+      "type": "suspicious_tld",
+      "weight": 50,
+      "description": "Domain claims CRA but uses a high-abuse TLD instead of .gc.ca or .canada.ca.",
+      "match": {
+        "from_domain_tld_in": [".xyz", ".top", ".click", ".live", ".vip", ".online", ".site", ".info", ".biz", ".tk", ".ml", ".ga", ".cf", ".gq"],
+        "from_domain_contains_any": ["cra", "canada-revenue", "revenue-canada", "arc-canada"]
+      },
+      "user_explanation": "Canada Revenue Agency emails always come from .gc.ca or .canada.ca — never from .xyz, .top, .click, or similar TLDs."
+    },
+    {
+      "id": "gov_claiming_non_canadian_tld",
+      "type": "suspicious_tld",
+      "weight": 40,
+      "description": "Display claims Canadian government but domain isn't .gc.ca or .canada.ca.",
+      "match": {
+        "from_domain_not_ends_with": [".gc.ca", ".canada.ca"],
+        "from_domain_not_in_known_sender_domains_for": ["cra", "service_canada", "ircc", "cbsa", "rcmp", "canada_post"],
+        "body_or_display_contains_any": ["Government of Canada", "Gouvernement du Canada"]
+      },
+      "user_explanation": "Federal Government of Canada emails come from .gc.ca or .canada.ca domains. Any other domain claiming to be the federal government is suspicious."
+    },
+    {
+      "id": "domain_lookalike_high_value",
+      "type": "domain_lookalike",
+      "weight": 60,
+      "description": "Sender domain is within Levenshtein distance 2 of a high_value entry in the institution whitelist, or differs only by homoglyph substitution.",
+      "match": {
+        "lookalike_of_high_value_whitelist": true
+      },
+      "user_explanation": "The sender domain looks similar to a real institution but isn't an exact match. Scammers register near-duplicate domains to fool quick readers."
+    },
+    {
+      "id": "punycode_institutional_claim",
+      "type": "punycode_domain",
+      "weight": 65,
+      "description": "Sender domain uses punycode (xn--) and the message claims institutional identity.",
+      "match": {
+        "from_domain_starts_with": "xn--",
+        "body_or_display_claims_institution": true
+      },
+      "user_explanation": "The sender uses an internationalized domain name that displays as recognizable letters but encodes to different characters underneath. No major Canadian institution uses punycode email domains."
+    },
+    {
+      "id": "long_subdomain_chain_hiding_brand",
+      "type": "suspicious_subdomain_chain",
+      "weight": 45,
+      "description": "From domain contains an institution name as a subdomain but the registrable domain is something else (e.g., 'cra.gc.ca.refund-portal.xyz').",
+      "match": {
+        "subdomain_contains_institution_name": true,
+        "registrable_domain_not_in_whitelist": true
+      },
+      "user_explanation": "The institution name appears in the subdomain to trick the reader, but the actual domain is something else. The part right before .com / .ca is what matters."
+    },
+    {
+      "id": "etransfer_to_personal_email",
+      "type": "etransfer_to_individual",
+      "weight": 55,
+      "description": "Message instructs sending Interac e-Transfer to a personal-looking email rather than to an institutional recipient.",
+      "match": {
+        "body_contains_any": ["send e-transfer to", "send Interac e-Transfer to", "send via e-Transfer to", "transfer to the following email"],
+        "target_email_on_free_provider": true
+      },
+      "user_explanation": "Real institutions don't receive payment via e-Transfer to a personal Gmail or Yahoo address. This is a hallmark of refund and rental scams."
+    },
+    {
+      "id": "gift_card_payment_request",
+      "type": "payment_red_flag",
+      "weight": 70,
+      "description": "Body requests payment via gift cards.",
+      "match": {
+        "body_contains_any": ["iTunes gift card", "Apple gift card", "Google Play card", "Steam card", "Amazon gift card", "prepaid card", "Vanilla Visa", "gift card code", "scratch off the back"]
+      },
+      "user_explanation": "No legitimate institution, government agency, or business ever accepts payment via gift cards. Any request for gift-card payment is a scam — full stop."
+    },
+    {
+      "id": "crypto_payment_request",
+      "type": "payment_red_flag",
+      "weight": 65,
+      "description": "Body requests payment in cryptocurrency.",
+      "match": {
+        "body_contains_any": ["Bitcoin", "BTC", "Ethereum", "USDT", "Tether", "cryptocurrency wallet", "send to this wallet address", "crypto ATM"]
+      },
+      "user_explanation": "No Canadian government agency, bank, or utility accepts cryptocurrency as payment. Requests for crypto are a scam signal regardless of context."
+    },
+    {
+      "id": "sin_request",
+      "type": "sin_request",
+      "weight": 65,
+      "description": "Body requests Social Insurance Number.",
+      "match": {
+        "body_contains_any": ["Social Insurance Number", "SIN number", "your SIN", "9-digit SIN", "numéro d'assurance sociale", "NAS"]
+      },
+      "user_explanation": "No legitimate organization will request your Social Insurance Number via email. SIN should only be given over established phone lines or in person to verified institutions."
+    },
+    {
+      "id": "urgency_arrest_warrant",
+      "type": "urgency_language",
+      "weight": 35,
+      "description": "Body uses arrest/warrant urgency language.",
+      "match": {
+        "body_contains_any": ["warrant for your arrest", "arrest warrant", "you will be arrested", "criminal charges", "deported", "deportation", "legal action will be taken", "final warning"]
+      },
+      "user_explanation": "Canadian law enforcement does not warn people of impending arrest by email or SMS. This language is designed to create panic."
+    },
+    {
+      "id": "urgency_24_hours",
+      "type": "urgency_language",
+      "weight": 20,
+      "description": "Body uses 24-hour deadline language.",
+      "match": {
+        "body_contains_any": ["within 24 hours", "within the next 24 hours", "in the next 24h", "expires in 24 hours", "account will be suspended", "account will be closed", "immediate action required", "act now"]
+      },
+      "user_explanation": "Artificial deadlines are a manipulation tactic. Legitimate institutions give reasonable notice and allow you to verify by calling them directly."
+    },
+    {
+      "id": "credential_request_password",
+      "type": "credential_request",
+      "weight": 60,
+      "description": "Body requests password or login credentials directly.",
+      "match": {
+        "body_contains_any": ["confirm your password", "verify your password", "send us your password", "reply with your login", "your online banking password", "your CVV"]
+      },
+      "user_explanation": "No legitimate institution will ever ask for your password by email. Real password resets always happen via a link to the institution's own site."
+    },
+    {
+      "id": "credential_request_otp",
+      "type": "credential_request",
+      "weight": 65,
+      "description": "Body requests a one-time code or 2FA code.",
+      "match": {
+        "body_contains_any": ["share the one-time code", "send us the verification code", "tell us the code", "reply with the code we just texted", "OTP code", "2FA code"]
+      },
+      "user_explanation": "One-time codes are a second authentication factor — sharing them by reply defeats their purpose. This is a hallmark of account-takeover scams."
+    },
+    {
+      "id": "shortened_link_institutional",
+      "type": "shortened_link_to_institution",
+      "weight": 35,
+      "description": "Message uses a URL shortener for what claims to be an institutional link.",
+      "match": {
+        "link_domains_contain_any": ["bit.ly", "tinyurl.com", "goo.gl", "t.co", "rb.gy", "is.gd", "buff.ly", "ow.ly", "shorturl.at", "cutt.ly"],
+        "body_or_display_claims_institution": true
+      },
+      "user_explanation": "Canadian banks, the CRA, and major institutions do not use URL shorteners — they use full, recognizable links to their own domains."
+    },
+    {
+      "id": "link_text_url_mismatch",
+      "type": "link_text_url_mismatch",
+      "weight": 50,
+      "description": "Visible link text shows an institutional domain but href points to a different domain.",
+      "match": {
+        "link_text_domain_differs_from_href_domain": true,
+        "link_text_in_whitelist": true
+      },
+      "user_explanation": "The link displays one address but actually leads somewhere else. This is one of the most reliable scam signals."
+    },
+    {
+      "id": "ip_address_link",
+      "type": "ip_address_link",
+      "weight": 55,
+      "description": "Message contains a link to a raw IP address.",
+      "match": {
+        "link_url_is_ip_address": true
+      },
+      "user_explanation": "Real institutional emails never link directly to an IP address. This pattern is used to evade domain reputation checks."
+    },
+    {
+      "id": "html_form_in_email",
+      "type": "html_form_in_email",
+      "weight": 60,
+      "description": "Email contains an HTML form requesting input.",
+      "match": {
+        "email_body_contains_html_form": true
+      },
+      "user_explanation": "Legitimate institutions never embed login or payment forms inside emails. They always link out to their own website."
+    },
+    {
+      "id": "executable_attachment",
+      "type": "attachment_with_executable",
+      "weight": 75,
+      "description": "Message has an executable, script, or password-protected archive attachment.",
+      "match": {
+        "attachment_extension_in": [".exe", ".scr", ".vbs", ".js", ".jse", ".iso", ".lnk", ".bat", ".cmd", ".pif", ".hta", ".msi", ".ps1", ".jar", ".cab", ".img"],
+        "or_password_protected_archive": true
+      },
+      "user_explanation": "Canadian institutions never send executable files or password-protected archives by email. Any such attachment is almost certainly malware."
+    },
+    {
+      "id": "reply_to_mismatch_freemail",
+      "type": "reply_to_mismatch",
+      "weight": 40,
+      "description": "From appears institutional but Reply-To points to a free-email provider.",
+      "match": {
+        "from_domain_in_whitelist": true,
+        "reply_to_domain_in": ["gmail.com", "outlook.com", "hotmail.com", "yahoo.com", "yahoo.ca", "icloud.com", "proton.me", "protonmail.com"]
+      },
+      "user_explanation": "The visible From appears to be an institution, but replies would go to a personal Gmail or Outlook address. This is a near-certain spoofing signal."
+    },
+    {
+      "id": "auth_failure_known_brand",
+      "type": "auth_header_failure",
+      "weight": 65,
+      "description": "Authentication-Results header shows SPF/DKIM/DMARC failure for a sender claiming a known brand.",
+      "match": {
+        "spf_or_dkim_or_dmarc_failed": true,
+        "claimed_brand_in_whitelist": true
+      },
+      "user_explanation": "The email's authentication checks failed for the institution it claims to be from. This means the sender almost certainly forged the From address."
+    },
+    {
+      "id": "imessage_evasion_reply_y",
+      "type": "imessage_evasion_pattern",
+      "weight": 70,
+      "description": "Body contains the 'reply Y then exit and re-open the message' trick to bypass iMessage link-blocking for unknown senders. Source: real samples from 407 ETR toll, FastTrak, and other 2025 smishing campaigns.",
+      "match": {
+        "body_contains_any": ["reply Y, then exit", "reply Y then exit", "please reply Y", "Reply Y to activate", "exit the text message and open it again", "copy the link into your Safari", "copy the link into Safari", "open it in your Safari browser", "reply with Y to confirm"]
+      },
+      "user_explanation": "This is a known trick to bypass iMessage's protection that blocks links from unknown senders. Apple does this on purpose — if a message is telling you to 'reply Y and reopen', it is almost certainly a scam."
+    },
+    {
+      "id": "toll_road_unpaid_link",
+      "type": "toll_road_smishing",
+      "weight": 65,
+      "description": "Classic unpaid-toll smishing template. 407 ETR alone took down 1,100+ impersonation domains in 2025. Mirrors FastTrak (US) and EZDriveMA scam structures.",
+      "match": {
+        "body_contains_any": ["unpaid toll", "outstanding toll", "toll violation", "unsettled toll", "unpaid balance", "outstanding balance", "toll payment is overdue", "toll payment", "past due toll"],
+        "body_contains_any_secondary": ["407 ETR", "407etr", "Highway 407", "A25", "Concession A25", "FastTrak", "EZPass", "highway toll", "toll road"],
+        "link_present": true,
+        "link_domain_not_in_whitelist": true
+      },
+      "user_explanation": "Real 407 ETR text messages do NOT contain a direct payment link. To check whether you actually owe a toll, log in at 407etr.com directly, never through a link in a message."
+    },
+    {
+      "id": "license_revocation_threat",
+      "type": "license_revocation_threat",
+      "weight": 50,
+      "description": "Message threatens driver's licence revocation, vehicle registration suspension, or plate renewal denial. Used in toll, parking-ticket, and Service Ontario scams.",
+      "match": {
+        "body_contains_any": ["revocation of your driver", "revoke your license", "suspension of your driver's licence", "suspend your driver's license", "vehicle registration suspension", "registration suspension", "plate renewal denial", "denial of plate renewal", "license suspension", "licence suspension", "ServiceOntario suspension", "registration will be suspended"]
+      },
+      "user_explanation": "Threats of immediate licence or registration revocation by text or email are a scam tactic. Real licence-related actions in Canada are handled by mail through the provincial transport ministry, not by surprise SMS."
+    },
+    {
+      "id": "sin_included_in_body",
+      "type": "sin_disclosure_in_message",
+      "weight": 60,
+      "description": "Message contains what appears to be the recipient's SIN as proof of legitimacy. CAFC flagged this pattern in early 2024 — scammers obtained SINs from prior breaches and use them to seem credible. CRA does NOT include SIN in transactional message body.",
+      "match": {
+        "body_contains_sin_pattern": true,
+        "body_or_display_contains_any": ["CRA", "Canada Revenue", "Revenue Canada", "Service Canada", "Government of Canada", "Gouvernement du Canada"]
+      },
+      "user_explanation": "A scam may show your real SIN to seem legitimate — this means your data was leaked previously, NOT that the sender is real. Canadian government agencies do not include full or partial SINs in unsolicited messages."
+    },
+    {
+      "id": "geek_squad_exact_template",
+      "type": "auto_renewal_callback_combo",
+      "weight": 75,
+      "description": "Tight fingerprint based on real 2025 Geek Squad scam samples. Subject 'Payment order settled' / 'Subscription renewed', greeting 'Dear User' or 'Dear Customer', dollar amount $200-$700, callback number with toll-free prefix.",
+      "match": {
+        "subject_or_body_contains_any": ["Payment order settled", "Your subscription has been renewed", "Subscription renewed", "Auto-renewal confirmation", "Your renewal has been completed", "Your account has been debited", "Renewal confirmation"],
+        "body_contains_any": ["Geek Squad", "Geeksquad", "Geek 360", "Best Buy Protection", "Norton 360", "Norton LifeLock", "McAfee Total Protection", "PayPal Invoice"],
+        "body_contains_phone_number": true,
+        "body_dollar_amount_in_range": [199, 799]
+      },
+      "user_explanation": "This message matches the exact template of the most-reported Canadian invoice scam (Geek Squad / Norton / McAfee). The phone number does not lead to Best Buy — it leads to a fraudster who will ask for remote computer access or gift-card payment. Real Best Buy charges appear on your credit card statement; check there first, never call a number from the email."
+    },
+    {
+      "id": "etransfer_loading_screen",
+      "type": "etransfer_loading_screen_phish",
+      "weight": 65,
+      "description": "References to an e-Transfer 'loading' or 'processing' screen with instructions not to refresh. Pattern from 2024 Fredericton case and similar Kijiji/Marketplace e-Transfer interception scams.",
+      "match": {
+        "body_contains_any": ["loading symbol", "do not refresh the page", "do not close this page", "processing your transfer", "processing your e-Transfer", "this may take a few minutes", "transfer is being processed"],
+        "body_or_display_contains_any": ["Interac", "e-Transfer", "e-transfer"]
+      },
+      "user_explanation": "Real Interac e-Transfer deposits complete in seconds through your bank's own login. A 'loading' or 'processing' screen on a non-bank page is a phishing tool designed to capture your banking login while pretending to process the deposit."
+    },
+    {
+      "id": "canada_post_redelivery_fee",
+      "type": "package_redelivery_fee",
+      "weight": 60,
+      "description": "Canada Post / Purolator / FedEx 'small redelivery fee' template. Active for years and remains a top SMS-reported scam in Canada.",
+      "match": {
+        "body_contains_any": ["Canada Post", "Postes Canada", "Purolator", "FedEx", "DHL", "UPS", "your package", "your parcel", "your shipment"],
+        "body_contains_any_secondary": ["unable to deliver", "delivery failed", "delivery attempt failed", "redelivery fee", "small fee", "customs charge", "customs fee", "shipping fee", "incomplete address", "address verification needed", "reschedule delivery"],
+        "link_present": true
+      },
+      "user_explanation": "Real Canada Post never asks for a small redelivery fee via SMS or email link. Real undelivered packages can be retrieved at your local post office. To verify, search the tracking number at canadapost.ca directly."
+    },
+    {
+      "id": "fake_security_alert_2fa",
+      "type": "fake_2fa_security_alert",
+      "weight": 45,
+      "description": "Generic 'unusual sign-in' / 'verify your account' template with a link. Most commonly impersonates Microsoft, Apple, Netflix, banks, or Amazon.",
+      "match": {
+        "body_contains_any": ["unusual sign-in", "unusual login", "unrecognized device", "someone tried to log into your account", "verify your account", "secure your account", "click here to confirm it was you", "if this wasn't you, click here", "your account has been temporarily limited", "your account has been restricted"],
+        "link_present": true,
+        "from_domain_not_in_whitelist": true
+      },
+      "user_explanation": "Account security alerts should always be verified by logging into the service directly through its app or by typing the address yourself — never by clicking a link in the message."
+    },
+    {
+      "id": "alberta_rebate_text_scam",
+      "type": "alberta_affordability_scam",
+      "weight": 55,
+      "description": "Government of Alberta 'affordability payment' or 'energy rebate' SMS scam. Confirmed by the Alberta government 2022-2025.",
+      "match": {
+        "body_contains_any": ["affordability payment", "affordability rebate", "energy rebate", "Alberta affordability", "register for your payment", "claim your rebate"],
+        "body_or_display_contains_any": ["Government of Alberta", "Alberta Government", "Alberta", "Service Alberta"],
+        "link_present": true
+      },
+      "user_explanation": "Government of Alberta does not send rebate or affordability-payment registration links by text. Real benefits arrive via your existing CRA direct deposit setup."
+    },
+    {
+      "id": "a25_toll_bridge_scam",
+      "type": "concession_a25_scam",
+      "weight": 60,
+      "description": "Concession A25 toll bridge (Laval-Montréal) impersonation. CAFC-confirmed pattern 2024+.",
+      "match": {
+        "body_contains_any": ["A25", "A-25", "Autoroute 25", "Concession A25", "pont A25"],
+        "body_contains_any_secondary": ["unpaid", "outstanding", "violation", "amende", "paiement", "péage impayé", "toll", "facture"],
+        "link_present": true,
+        "link_domain_not_in_whitelist": true
+      },
+      "user_explanation": "Real A25 toll communications direct you to a25.com directly. Texts with payment links claiming unpaid bridge tolls are a confirmed scam pattern in Quebec."
+    },
+    {
+      "id": "tax_refund_etransfer_lure",
+      "type": "callback_number_in_invoice",
+      "weight": 60,
+      "description": "Specific CRA-tax-refund-via-e-Transfer template. Verbatim phrases pulled from 2020 Waterloo student scam wave and still circulating.",
+      "match": {
+        "body_contains_all_of": [
+          ["Canada Revenue Agency", "CRA", "tax refund"],
+          ["INTERAC e-Transfer", "Interac e-Transfer", "e-Transfer", "e-transfer"],
+          ["Start Claim", "Deposit", "deposit your money", "claim your refund"]
+        ]
+      },
+      "user_explanation": "CRA does NOT use Interac e-Transfer to send refunds. Refunds come by direct deposit (if set up) or by cheque, never via an Interac e-Transfer link. This message template is verbatim from documented scam campaigns."
+    },
+    {
+      "id": "amazon_gift_card_payment_pivot",
+      "type": "payment_red_flag",
+      "weight": 70,
+      "description": "Late-stage scam pivot to gift cards after initial contact (commonly seen in CRA phone-pivot-to-email and tech-support remote-access scams).",
+      "match": {
+        "body_contains_any": ["purchase Amazon gift cards", "buy iTunes cards", "buy Steam cards", "buy Google Play cards", "go to the nearest store and purchase", "scratch off the back and send", "send us the codes on the back", "share the gift card numbers"]
+      },
+      "user_explanation": "No legitimate organization accepts gift cards as payment. If a 'CRA agent', 'Microsoft tech', 'police officer', or any other authority asks you to buy gift cards from a store and read the codes back, hang up — full stop."
+    },
+    {
+      "id": "perfect_grammar_with_red_flags",
+      "type": "ai_generated_indicators",
+      "weight": 15,
+      "description": "Tiebreaker rule: polished, AI-generated-sounding language combined with at least one other red flag. AI scams are now 82.6% of phishing (per industry reporting), so grammar is no longer a useful exclusion criterion.",
+      "match": {
+        "body_appears_ai_polished": true,
+        "other_rules_triggered_count_gte": 1
+      },
+      "user_explanation": "Modern scams use AI to write perfectly. Good grammar is no longer evidence that an email is genuine."
+    }
+  ]
+}
