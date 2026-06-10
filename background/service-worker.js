@@ -304,16 +304,23 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         const url   = msg.url;
         const tabId = sender.tab?.id;
         if (tabId == null) return;
+        console.log('[CSS-DEBUG] PAGE_FEATURES received:', url, '| fields:', msg.features?.fields?.length ?? 0, '| textLen:', msg.features?.text?.length ?? 0);
 
         // Respect any session override the user set for this hostname
-        if (await isOverridden(url)) return;
+        if (await isOverridden(url)) {
+          console.log('[CSS-DEBUG] skipped — hostname is in session override allowlist:', url);
+          return;
+        }
 
         // Layer 1 — URL analysis
         const l1 = await runAnalysis(url);
 
         // If Layer 1 already cleared this as a verified institution, skip
         // content scanning to avoid false positives on legitimate bank sites.
-        if (l1.verdict === 'safe' && l1.institutionName) return;
+        if (l1.verdict === 'safe' && l1.institutionName) {
+          console.log('[CSS-DEBUG] skipped — whitelisted institution:', l1.institutionName);
+          return;
+        }
 
         // Layer 2 — page content analysis
         const keywords = await getDataFile('scam-keywords.json');
@@ -337,6 +344,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         if (VERDICT_RANK[l1.verdict] > VERDICT_RANK[finalVerdict]) {
           finalVerdict = l1.verdict;
         }
+        console.log('[CSS-DEBUG] L1:', l1.verdict, l1.score, '| L2:', l2.verdict, l2.score, '| combined:', combined, '→ final:', finalVerdict, '| categories:', l2.categoriesHit);
 
         // Dispatch UX response — mirrors the tabs.onUpdated handler exactly
         if (finalVerdict === 'high') {

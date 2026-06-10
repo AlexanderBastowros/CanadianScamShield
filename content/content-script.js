@@ -129,7 +129,10 @@ function sendFeatures() {
   try {
     var f = extractPageFeatures();
     if (f) {
+      console.log('[CSS-DEBUG] content script sending PAGE_FEATURES', location.href, 'fields:', f.fields.length, 'textLen:', f.text.length);
       chrome.runtime.sendMessage({ type: 'PAGE_FEATURES', url: location.href, features: f });
+    } else {
+      console.log('[CSS-DEBUG] content script: no features (sub-frame or error)');
     }
   } catch (e) {
     // Extension context unavailable or message channel closed — safe to ignore
