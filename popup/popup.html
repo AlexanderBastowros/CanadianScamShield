@@ -74,14 +74,50 @@
 
   <!-- ===== PANEL 2: CHECK A MESSAGE ===== -->
   <div id="panel-check" class="panel" role="tabpanel" aria-labelledby="tab-check" hidden>
-    <div class="coming-soon">
-      <textarea
-        class="check-textarea"
-        disabled
-        aria-label="Message checker — coming soon"
-      ></textarea>
-      <p id="check-coming-soon" class="coming-soon__text"></p>
-    </div>
+
+    <h2 id="check-heading" class="check-heading"></h2>
+    <p id="check-instructions" class="check-instructions"></p>
+
+    <label id="check-sender-label" class="check-label" for="check-sender"></label>
+    <input id="check-sender" class="check-input" type="text" autocomplete="off">
+
+    <textarea
+      id="check-textarea"
+      class="check-textarea"
+      rows="6"
+      aria-labelledby="check-heading"
+    ></textarea>
+
+    <p id="check-error" class="check-error" role="alert" hidden></p>
+
+    <button id="check-btn" class="check-btn" type="button"></button>
+
+    <section id="check-results" class="check-results" hidden aria-live="polite">
+      <h3 id="check-result-heading" class="check-result-heading"></h3>
+
+      <div class="score-row">
+        <span id="check-score-label" class="score-label"></span>
+        <span class="score-text"><span id="score-value">0</span>/100</span>
+      </div>
+      <div id="score-bar-track" class="score-bar-track" aria-hidden="true">
+        <div id="score-bar-fill" class="score-bar-fill"></div>
+      </div>
+
+      <p id="check-verdict" class="check-verdict"></p>
+      <p id="check-advice" class="check-advice"></p>
+
+      <h4 id="check-rules-heading" class="check-rules-heading"></h4>
+      <ul id="check-rules-list" class="check-rules-list"></ul>
+
+      <div id="check-contact" class="check-contact" hidden>
+        <p id="check-contact-label" class="check-contact-label"></p>
+        <a id="check-contact-link" class="check-contact-link" target="_blank" rel="noopener noreferrer" hidden></a>
+        <span id="check-contact-phone" class="check-contact-phone" hidden></span>
+      </div>
+
+      <p id="check-upgrade-hint" class="check-upgrade-hint"></p>
+    </section>
+
   </div>
 
   <!-- ===== FOOTER ===== -->

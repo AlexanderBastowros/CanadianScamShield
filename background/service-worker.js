@@ -3,72 +3,124 @@
  * Canadian Scam Shield — MV3 service worker
  *
  * Responsibilities:
- *   • Load data files (whitelist.json, known-bad.json) with a simple in-memory cache
- *   • Run URL analysis on every tab navigation that reaches "complete"
- *   • Dispatch the appropriate UX response based on the verdict (badge / banner / full-page block)
- *   • Route messages from content scripts and the popup
+ *   • Load data files (whitelist, known-bad, keywords, patterns, sender-domains)
+ *     with a layered cache: memory → chrome.storage.local (live updates) →
+ *     bundled package → safe fallback.
+ *   • Run Layer 1 (URL) analysis on every navigation, combine with Layer 2
+ *     (page content) signals, apply the user's sensitivity setting and custom
+ *     allow/block lists, and dispatch badge / banner / full-page warning.
+ *   • Serve Layer 3 (CHECK_MESSAGE) requests from the popup's message checker.
+ *   • Keep threat data fresh via a daily alarm, and refresh the Pro license.
  *
  * MV3 note: service workers are stateless between wake cycles.  The _cache object
- * below is intentionally scoped to this module — it persists for the lifetime of a
- * single worker activation and is rebuilt cheaply on the next wake if needed.
+ * is scoped to one activation and rebuilt cheaply on the next wake.
  */
 
-import { analyzeUrl }     from '../lib/url-analyzer.js';
-import { analyzeContent } from '../lib/content-analyzer.js';
+import { analyzeUrl }      from '../lib/url-analyzer.js';
+import { analyzeContent }  from '../lib/content-analyzer.js';
+import { analyzeMessage }  from '../lib/message-analyzer.js';
+import { getProState, refreshLicenseIfStale } from '../lib/pro.js';
+
+// Public GitHub raw base for live data updates (master branch of this repo).
+const DATA_BASE_URL =
+  'https://raw.githubusercontent.com/AlexanderBastowros/CanadianScamShield/master/data/';
+
+const DATA_FILES = [
+  'whitelist.json',
+  'scam-sender-patterns.json',
+  'known-sender-domains.json',
+  'known-bad.json',
+  'scam-keywords.json',
+];
 
 // ---------------------------------------------------------------------------
-// Data file cache
+// Data file cache (layered)
 // ---------------------------------------------------------------------------
 
-/**
- * In-memory cache keyed by filename.  Lives for the duration of one worker
- * activation; rebuilt automatically on the next wake if the worker was evicted.
- * @type {Object.<string, object>}
- */
 const _cache = {};
+
+/** The empty-but-valid fallback shape for a given data filename. */
+function fallbackShape(name) {
+  if (name.includes('whitelist')) return { institutions: [] };
+  if (name.includes('keyword')) return { categories: {} };
+  if (name.includes('pattern')) return { rules: [] };
+  if (name.includes('sender-domains')) return { organizations: [] };
+  return { domains: [] };
+}
 
 /**
  * getDataFile(name)
  *
- * Fetches and JSON-parses a file from the extension's `data/` directory,
- * caching the result for subsequent calls within this activation lifetime.
- * Never throws — on any error it returns a safe empty fallback shape so that
- * analysis can proceed (with degraded accuracy) rather than crashing.
- *
- * @param {string} name  - Filename, e.g. 'whitelist.json' or 'known-bad.json'
- * @returns {Promise<object>}
+ * Resolution order:
+ *   1. in-memory _cache
+ *   2. chrome.storage.local 'data_<name>' (written by the daily updater)
+ *   3. bundled file fetched from the package
+ *   4. safe empty fallback
+ * The winner is cached in memory. Never throws.
  */
 async function getDataFile(name) {
   if (_cache[name]) return _cache[name];
 
+  // 2. Live-updated copy in local storage
+  try {
+    const stored = await chrome.storage.local.get('data_' + name);
+    if (stored && stored['data_' + name]) {
+      _cache[name] = stored['data_' + name];
+      return _cache[name];
+    }
+  } catch {
+    /* fall through to bundled */
+  }
+
+  // 3. Bundled package file
   try {
     const res = await fetch(chrome.runtime.getURL('data/' + name));
     _cache[name] = await res.json();
   } catch (e) {
     console.warn('CSS data load failed', name, e);
-    // Return a structurally valid empty object that downstream code can handle
-    // without null-checking — shape depends on which file failed.
-    _cache[name] = name.includes('whitelist')
-      ? { institutions: [] }
-      : name.includes('keyword')
-        ? { categories: {} }
-        : { domains: [] };
+    _cache[name] = fallbackShape(name);
   }
-
   return _cache[name];
 }
 
 // ---------------------------------------------------------------------------
-// Verdict helpers — shared by tabs.onUpdated and the PAGE_FEATURES handler
+// Settings
 // ---------------------------------------------------------------------------
 
+/** Reads user settings with sensible defaults. */
+async function getSettings() {
+  try {
+    return await chrome.storage.sync.get({
+      language: 'en',
+      sensitivity: 'balanced',
+      customWhitelist: [],
+      customBlocklist: [],
+      phishtankOptIn: false,
+    });
+  } catch {
+    return {
+      language: 'en', sensitivity: 'balanced',
+      customWhitelist: [], customBlocklist: [], phishtankOptIn: false,
+    };
+  }
+}
+
 /**
- * Maps a numeric score to a verdict band, matching the threshold model defined
- * in docs/handoff.md: <30 safe, 30–54 low, 55–79 medium, ≥80 high.
- *
- * @param {number} score
- * @returns {'safe'|'low'|'medium'|'high'}
+ * applySensitivity(score, sensitivity)
+ *   strict     → +15 (warn more)
+ *   permissive → -15 (warn less)
+ *   balanced   → unchanged
+ * Result clamped to 0..100.
  */
+function applySensitivity(score, sensitivity) {
+  const shift = sensitivity === 'strict' ? 15 : sensitivity === 'permissive' ? -15 : 0;
+  return Math.max(0, Math.min(100, score + shift));
+}
+
+// ---------------------------------------------------------------------------
+// Verdict helpers
+// ---------------------------------------------------------------------------
+
 function bandOf(score) {
   return score >= 80 ? 'high'
        : score >= 55 ? 'medium'
@@ -76,32 +128,21 @@ function bandOf(score) {
        :               'safe';
 }
 
-/**
- * Ordinal rank for verdicts — used to ensure the final verdict never
- * drops below a component verdict (escalate-only merge).
- */
 const VERDICT_RANK = { safe: 0, low: 1, medium: 2, high: 3 };
 
-/**
- * buildWarningUrl(url, score, reasons, officialUrl, institutionName, lang)
- *
- * Constructs the full URL for the warning.html page, encoding all context as
- * query parameters.  Centralises the URLSearchParams logic so both the
- * tabs.onUpdated handler and the PAGE_FEATURES handler stay in sync.
- *
- * @param {string}   url             - The suspicious page URL
- * @param {number}   score           - Combined risk score (0–100)
- * @param {string[]} reasons         - Array of human-readable trigger descriptions
- * @param {string}   officialUrl     - URL of the legitimate institution ('' if unknown)
- * @param {string}   institutionName - Name of the institution ('' if unknown)
- * @param {string}   lang            - UI language code, e.g. 'en'
- * @returns {string}
- */
+/** Suffix match: host equals entry or ends with '.'+entry. */
+function hostMatchesList(host, list) {
+  if (!host || !Array.isArray(list)) return false;
+  return list.some((entry) => {
+    const e = String(entry).toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '');
+    return host === e || host.endsWith('.' + e);
+  });
+}
+
 function buildWarningUrl(url, score, reasons, officialUrl, institutionName, lang) {
   const params = new URLSearchParams({
     url,
     score: String(score),
-    // reasons is an array — JSON-encode then percent-encode for safe transport
     reasons: encodeURIComponent(JSON.stringify(reasons)),
     officialUrl:     officialUrl     ?? '',
     institutionName: institutionName ?? '',
@@ -111,19 +152,24 @@ function buildWarningUrl(url, score, reasons, officialUrl, institutionName, lang
 }
 
 // ---------------------------------------------------------------------------
-// Analysis helper
+// Layer 1 analysis (with custom allow/block lists)
 // ---------------------------------------------------------------------------
 
 /**
- * runAnalysis(url)
- *
- * Loads both data files in parallel and delegates to the URL analyzer.
- * Returns the full result object from analyzeUrl().
- *
- * @param {string} url
- * @returns {Promise<{verdict:string, score:number, reasons:string[], officialUrl:string|null, institutionName:string|null}>}
+ * runAnalysis(url) — custom lists first, then the URL analyzer.
+ * Custom lists are checked before analyzeUrl so the user's choices always win.
  */
 async function runAnalysis(url) {
+  const host = hostnameOf(url);
+  const settings = await getSettings();
+
+  if (host && hostMatchesList(host, settings.customWhitelist)) {
+    return { verdict: 'safe', score: 0, reasons: ['Trusted by you'], officialUrl: null, institutionName: null };
+  }
+  if (host && hostMatchesList(host, settings.customBlocklist)) {
+    return { verdict: 'high', score: 100, reasons: ['Blocked by your settings'], officialUrl: null, institutionName: null };
+  }
+
   const [whitelist, knownBad] = await Promise.all([
     getDataFile('whitelist.json'),
     getDataFile('known-bad.json'),
@@ -132,24 +178,13 @@ async function runAnalysis(url) {
 }
 
 // ---------------------------------------------------------------------------
-// Override allowlist
+// Override allowlist (session-scoped)
 // ---------------------------------------------------------------------------
-//
-// When a user clicks "I understand the risk, continue anyway" on the warning
-// page, we record that hostname so we do NOT re-block it for the rest of the
-// browser session. Stored in chrome.storage.session (cleared when the browser
-// closes) so an override never persists indefinitely.
 
-/** Extract a lowercase hostname from a URL, or null if it can't be parsed. */
 function hostnameOf(url) {
-  try {
-    return new URL(url).hostname.toLowerCase();
-  } catch {
-    return null;
-  }
+  try { return new URL(url).hostname.toLowerCase(); } catch { return null; }
 }
 
-/** Returns true if the URL's hostname has been overridden this session. */
 async function isOverridden(url) {
   const host = hostnameOf(url);
   if (!host) return false;
@@ -161,7 +196,6 @@ async function isOverridden(url) {
   }
 }
 
-/** Record a session override for the URL's hostname. */
 async function addOverride(url) {
   const host = hostnameOf(url);
   if (!host) return;
@@ -174,7 +208,6 @@ async function addOverride(url) {
   }
 }
 
-/** Navigate a tab to a safe page (New Tab page, falling back to about:blank). */
 function goToSafety(tabId) {
   if (tabId == null) return;
   chrome.tabs.update(tabId, { url: 'chrome://newtab/' }).catch(() => {
@@ -183,73 +216,111 @@ function goToSafety(tabId) {
 }
 
 // ---------------------------------------------------------------------------
-// Lifecycle — onInstalled
+// Daily data update
+// ---------------------------------------------------------------------------
+
+/** fetch JSON with a timeout. Returns parsed object or throws. */
+async function fetchJson(url, ms = 10000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Pulls each data file from GitHub raw, and if its `version` differs from the
+ * currently loaded copy, stores it in chrome.storage.local and refreshes the
+ * in-memory cache. Any per-file failure is logged and skipped — existing data
+ * is never cleared (fail closed / never fail open).
+ *
+ * @returns {Promise<string>} the new dataLastUpdated ISO timestamp
+ */
+async function fetchDataUpdates() {
+  for (const file of DATA_FILES) {
+    try {
+      const remote = await fetchJson(DATA_BASE_URL + file);
+      const current = await getDataFile(file);
+      const remoteVer = remote?.version ?? null;
+      const currentVer = current?.version ?? null;
+      if (remoteVer && remoteVer !== currentVer) {
+        await chrome.storage.local.set({ ['data_' + file]: remote });
+        _cache[file] = remote;
+        console.log('CSS data updated:', file, currentVer, '→', remoteVer);
+      }
+    } catch (e) {
+      console.warn('CSS data update skipped for', file, e.message);
+    }
+  }
+  const dataLastUpdated = new Date().toISOString();
+  try { await chrome.storage.local.set({ dataLastUpdated }); } catch { /* ignore */ }
+  return dataLastUpdated;
+}
+
+// ---------------------------------------------------------------------------
+// Lifecycle
 // ---------------------------------------------------------------------------
 
 chrome.runtime.onInstalled.addListener(() => {
   console.log('Canadian Scam Shield installed');
+  chrome.alarms.create('dailyDataUpdate', { periodInMinutes: 1440 });
+  chrome.alarms.create('licenseRefresh', { periodInMinutes: 1440 });
+});
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === 'dailyDataUpdate') {
+    fetchDataUpdates().catch((e) => console.warn('CSS dailyDataUpdate failed', e));
+  } else if (alarm.name === 'licenseRefresh') {
+    refreshLicenseIfStale().catch((e) => console.warn('CSS licenseRefresh failed', e));
+  }
 });
 
 // ---------------------------------------------------------------------------
-// Navigation listener — tabs.onUpdated
+// Navigation listener — tabs.onUpdated (Layer 1)
 // ---------------------------------------------------------------------------
 
-/**
- * Fires when a tab's navigation status changes.  We only act when the page
- * has fully loaded (status === 'complete') and the URL is http(s) — browser
- * internal pages (chrome://, about:, etc.) are skipped.
- */
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-  // Only process fully loaded http(s) pages
   if (changeInfo.status !== 'complete') return;
   if (!tab.url || !/^https?:\/\//i.test(tab.url)) return;
 
-  // Respect a user's explicit "continue anyway" choice for this session —
-  // otherwise we would immediately re-block the page they chose to visit.
   if (await isOverridden(tab.url)) {
     chrome.action.setBadgeText({ tabId, text: '' });
     return;
   }
 
   try {
+    const settings = await getSettings();
     const result = await runAnalysis(tab.url);
-    const { verdict, score, reasons, officialUrl, institutionName } = result;
+    const { reasons, officialUrl, institutionName } = result;
+
+    // Apply sensitivity, then re-band (escalate-only relative to raw verdict).
+    const adjusted = applySensitivity(result.score, settings.sensitivity);
+    let verdict = bandOf(adjusted);
+    if (VERDICT_RANK[result.verdict] > VERDICT_RANK[verdict]) verdict = result.verdict;
 
     if (verdict === 'high') {
-      // Full-page block: redirect the tab to the warning page, passing all
-      // context as URL query parameters so warning.js can render them.
-      const warningUrl = buildWarningUrl(tab.url, score, reasons, officialUrl, institutionName, 'en');
-      chrome.tabs.update(tabId, { url: warningUrl });
-
+      chrome.tabs.update(tabId, {
+        url: buildWarningUrl(tab.url, adjusted, reasons, officialUrl, institutionName, settings.language),
+      });
     } else if (verdict === 'medium') {
-      // Persistent banner: ask the content script to show an in-page warning.
-      // Wrapped in try/catch because the content script may not be injected on
-      // all frames (e.g. chrome-extension pages, PDF viewer, etc.).
       try {
         await chrome.tabs.sendMessage(tabId, {
-          type: 'SHOW_BANNER',
-          level: 'medium',
-          reasons,
-          officialUrl,
-          institutionName,
+          type: 'SHOW_BANNER', level: 'medium', reasons, officialUrl, institutionName,
         });
       } catch (msgErr) {
-        // Content script not present on this page — silently ignore.
         console.debug('CSS banner send failed (no content script?):', msgErr.message);
       }
-
     } else if (verdict === 'low') {
-      // Subtle badge indicator on the extension icon for this tab
       chrome.action.setBadgeText({ tabId, text: '!' });
       chrome.action.setBadgeBackgroundColor({ tabId, color: '#E8A317' });
-
     } else {
-      // verdict === 'safe': clear any leftover badge from a previous navigation
       chrome.action.setBadgeText({ tabId, text: '' });
     }
-
   } catch (err) {
-    // A single analysis failure must never crash the worker.
     console.error('CSS onUpdated analysis error:', err);
   }
 });
@@ -258,172 +329,134 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 // Message router — runtime.onMessage
 // ---------------------------------------------------------------------------
 
-/**
- * Handles messages from content scripts, the popup, and the warning page.
- *
- * Returns true from the listener when the response will be sent asynchronously
- * (i.e. for GET_STATUS), which keeps the message channel open.
- */
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  // ------------------------------------------------------------------
-  // GET_STATUS — popup or content script asking for a URL's verdict
-  // ------------------------------------------------------------------
+
+  // GET_STATUS — popup asking for the active tab's verdict
   if (msg.type === 'GET_STATUS') {
-    // Run the analysis asynchronously and reply when done.
-    // We must return `true` synchronously to tell Chrome we'll call
-    // sendResponse later; otherwise the channel is closed immediately.
     runAnalysis(msg.url)
-      .then(result => sendResponse(result))
-      .catch(err => {
+      .then((result) => sendResponse(result))
+      .catch((err) => {
         console.error('CSS GET_STATUS error:', err);
         sendResponse({ verdict: 'safe', score: 0, reasons: [], officialUrl: null, institutionName: null });
       });
-    return true; // keep the message channel open for the async response
+    return true;
   }
 
-  // ------------------------------------------------------------------
-  // PAGE_LOAD — content script notifying that a page has loaded.
-  // Navigation-triggered analysis is already handled by tabs.onUpdated,
-  // so this is a no-op for now (reserved for future Layer 2 integration).
-  // ------------------------------------------------------------------
+  // PAGE_LOAD — content-script ack (navigation handled by tabs.onUpdated)
   if (msg.type === 'PAGE_LOAD') {
-    // Acknowledge the message; no action required at this stage.
     sendResponse({ ok: true });
     return false;
   }
 
-  // ------------------------------------------------------------------
-  // PAGE_FEATURES — content script has extracted DOM signals for Layer 2.
-  // Combines the Layer 1 URL score with the Layer 2 content score and
-  // dispatches the appropriate UX response (badge / banner / full-page block).
-  // No sendResponse call — fire-and-forget async IIFE.
-  // ------------------------------------------------------------------
+  // PAGE_FEATURES — Layer 2 page-content signals; combine with Layer 1
   if (msg.type === 'PAGE_FEATURES') {
     (async () => {
       try {
-        const url   = msg.url;
+        const url = msg.url;
         const tabId = sender.tab?.id;
         if (tabId == null) return;
-        console.log('[CSS-DEBUG] PAGE_FEATURES received:', url, '| fields:', msg.features?.fields?.length ?? 0, '| textLen:', msg.features?.text?.length ?? 0);
+        if (await isOverridden(url)) return;
 
-        // Respect any session override the user set for this hostname
-        if (await isOverridden(url)) {
-          console.log('[CSS-DEBUG] skipped — hostname is in session override allowlist:', url);
-          return;
-        }
-
-        // Layer 1 — URL analysis
+        const settings = await getSettings();
         const l1 = await runAnalysis(url);
+        if (l1.verdict === 'safe' && l1.institutionName) return; // verified institution
 
-        // If Layer 1 already cleared this as a verified institution, skip
-        // content scanning to avoid false positives on legitimate bank sites.
-        if (l1.verdict === 'safe' && l1.institutionName) {
-          console.log('[CSS-DEBUG] skipped — whitelisted institution:', l1.institutionName);
-          return;
-        }
-
-        // Layer 2 — page content analysis
         const keywords = await getDataFile('scam-keywords.json');
+        // SIN-field detection ships free for now → isPro:true regardless of license.
         const l2 = analyzeContent(msg.features, { keywords, isPro: true });
 
-        // Combine scores (capped at 100) and merge reason lists
-        const combined = Math.min(100, l1.score + l2.score);
+        const combinedRaw = Math.min(100, l1.score + l2.score);
+        const combined = applySensitivity(combinedRaw, settings.sensitivity);
 
         const seen = new Set(l1.reasons);
         const mergedReasons = [...l1.reasons];
-        for (const r of l2.reasons) {
-          if (!seen.has(r)) {
-            seen.add(r);
-            mergedReasons.push(r);
-          }
-        }
+        for (const r of l2.reasons) if (!seen.has(r)) { seen.add(r); mergedReasons.push(r); }
 
-        // Derive band from the combined score, then escalate if either
-        // component verdict is higher (never downgrade the verdict).
         let finalVerdict = bandOf(combined);
-        if (VERDICT_RANK[l1.verdict] > VERDICT_RANK[finalVerdict]) {
-          finalVerdict = l1.verdict;
-        }
-        console.log('[CSS-DEBUG] L1:', l1.verdict, l1.score, '| L2:', l2.verdict, l2.score, '| combined:', combined, '→ final:', finalVerdict, '| categories:', l2.categoriesHit);
+        if (VERDICT_RANK[l1.verdict] > VERDICT_RANK[finalVerdict]) finalVerdict = l1.verdict;
 
-        // Dispatch UX response — mirrors the tabs.onUpdated handler exactly
         if (finalVerdict === 'high') {
-          // Full-page block: navigate the tab to the warning page
-          const warningUrl = buildWarningUrl(
-            url, combined, mergedReasons,
-            l1.officialUrl ?? '', l1.institutionName ?? '', 'en'
-          );
-          chrome.tabs.update(tabId, { url: warningUrl });
-
+          chrome.tabs.update(tabId, {
+            url: buildWarningUrl(url, combined, mergedReasons, l1.officialUrl ?? '', l1.institutionName ?? '', settings.language),
+          });
         } else if (finalVerdict === 'medium') {
-          // Persistent banner via the content script
           try {
             await chrome.tabs.sendMessage(tabId, {
-              type: 'SHOW_BANNER',
-              level: 'medium',
-              reasons: mergedReasons,
-              officialUrl: l1.officialUrl,
-              institutionName: l1.institutionName,
+              type: 'SHOW_BANNER', level: 'medium', reasons: mergedReasons,
+              officialUrl: l1.officialUrl, institutionName: l1.institutionName,
             });
           } catch (msgErr) {
-            // Content script not present on this page — silently ignore.
             console.debug('CSS banner send failed (no content script?):', msgErr.message);
           }
-
         } else if (finalVerdict === 'low') {
-          // Subtle badge indicator on the extension icon for this tab
           chrome.action.setBadgeText({ tabId, text: '!' });
           chrome.action.setBadgeBackgroundColor({ tabId, color: '#E8A317' });
-
         }
-        // finalVerdict === 'safe': no-op — leave the badge as-is
-
       } catch (err) {
-        // A single PAGE_FEATURES failure must never crash the worker
         console.error('CSS PAGE_FEATURES analysis error:', err);
       }
     })();
-    return false; // no sendResponse
+    return false;
   }
 
-  // ------------------------------------------------------------------
-  // OVERRIDE_PROCEED — user clicked "continue anyway" on the warning page.
-  // Record a session override for the hostname so we don't re-block it, then
-  // acknowledge so the warning page can navigate. Replies asynchronously.
-  // ------------------------------------------------------------------
+  // CHECK_MESSAGE — Layer 3 email/SMS paste checker (from popup)
+  if (msg.type === 'CHECK_MESSAGE') {
+    (async () => {
+      try {
+        const [patterns, senderDomains, whitelist, settings, proState] = await Promise.all([
+          getDataFile('scam-sender-patterns.json'),
+          getDataFile('known-sender-domains.json'),
+          getDataFile('whitelist.json'),
+          getSettings(),
+          getProState(),
+        ]);
+        const headers = msg.sender ? { from: msg.sender } : null;
+        const result = analyzeMessage(msg.rawText || '', {
+          patterns, senderDomains, whitelist, headers,
+          isPro: proState.isPro, lang: settings.language,
+        });
+        sendResponse(result);
+      } catch (err) {
+        console.error('CSS CHECK_MESSAGE error:', err);
+        sendResponse({ score: 0, verdict: 'safe', firedRules: [], extractedLinks: [], senderDomain: null, officialContact: null });
+      }
+    })();
+    return true;
+  }
+
+  // UPDATE_DATA_NOW — options "Update now" button
+  if (msg.type === 'UPDATE_DATA_NOW') {
+    fetchDataUpdates()
+      .then((dataLastUpdated) => sendResponse({ ok: true, dataLastUpdated }))
+      .catch((err) => { console.error('CSS UPDATE_DATA_NOW error:', err); sendResponse({ ok: false }); });
+    return true;
+  }
+
+  // OVERRIDE_PROCEED — "continue anyway" on the warning page
   if (msg.type === 'OVERRIDE_PROCEED') {
-    console.log('Override:', msg.url);
     addOverride(msg.url)
       .then(() => sendResponse({ ok: true }))
       .catch(() => sendResponse({ ok: false }));
-    return true; // keep the channel open for the async response
+    return true;
   }
 
-  // ------------------------------------------------------------------
-  // GO_BACK_SAFE — user clicked "go back to safety". Navigate the tab that
-  // hosts the warning page to a safe page (cannot use history.back() because
-  // the previous entry is the flagged page, which would re-block).
-  // ------------------------------------------------------------------
+  // GO_BACK_SAFE — "go back to safety" on the warning page
   if (msg.type === 'GO_BACK_SAFE') {
     const tabId = sender.tab?.id;
     if (tabId != null) {
       goToSafety(tabId);
     } else {
-      chrome.tabs
-        .query({ active: true, currentWindow: true })
+      chrome.tabs.query({ active: true, currentWindow: true })
         .then(([active]) => active && goToSafety(active.id));
     }
     return false;
   }
 
-  // ------------------------------------------------------------------
-  // LOG_OVERRIDE — legacy/no-op diagnostic log (kept for compatibility).
-  // ------------------------------------------------------------------
+  // LOG_OVERRIDE — legacy/no-op diagnostic log
   if (msg.type === 'LOG_OVERRIDE') {
     console.log('Override (log only):', msg.url);
     return false;
   }
 
-  // Unrecognised message type — no response needed
   return false;
 });

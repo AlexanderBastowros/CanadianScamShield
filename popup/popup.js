@@ -202,6 +202,138 @@ function renderWhySection(reasons, lang) {
 }
 
 // ---------------------------------------------------------------------------
+// Check a message tab (Layer 3)
+// ---------------------------------------------------------------------------
+
+/**
+ * Populates the static labels of the message-checker tab and wires the
+ * "Check it" flow against the service worker's CHECK_MESSAGE route.
+ *
+ * SECURITY: every dynamic value coming back from the analyzer (explanations,
+ * contact info) is rendered via textContent — never innerHTML.
+ */
+function initChecker(lang) {
+  const heading   = document.getElementById('check-heading');
+  const instr     = document.getElementById('check-instructions');
+  const sendLabel = document.getElementById('check-sender-label');
+  const sender    = document.getElementById('check-sender');
+  const textarea  = document.getElementById('check-textarea');
+  const errorEl   = document.getElementById('check-error');
+  const btn       = document.getElementById('check-btn');
+  const results   = document.getElementById('check-results');
+
+  setText(heading, t('check_heading', lang));
+  setText(instr, t('check_instructions', lang));
+  setText(sendLabel, t('check_sender_label', lang));
+  sender.placeholder = t('check_sender_placeholder', lang);
+  textarea.placeholder = t('check_textarea_placeholder', lang);
+  setText(btn, t('check_button', lang));
+  setText(document.getElementById('check-result-heading'), t('check_result_heading', lang));
+  setText(document.getElementById('check-score-label'), t('check_score_label', lang));
+  setText(document.getElementById('check-rules-heading'), t('check_fired_rules_heading', lang));
+  setText(document.getElementById('check-upgrade-hint'), t('popup_upgrade_hint', lang));
+
+  async function runCheck() {
+    const rawText = textarea.value.trim();
+    if (!rawText) {
+      setText(errorEl, t('check_empty_error', lang));
+      show(errorEl);
+      hide(results);
+      return;
+    }
+    hide(errorEl);
+    btn.disabled = true;
+    setText(btn, t('check_checking', lang));
+
+    let res;
+    try {
+      const msg = { type: 'CHECK_MESSAGE', rawText };
+      const senderVal = sender.value.trim();
+      if (senderVal) msg.sender = senderVal;
+      res = await chrome.runtime.sendMessage(msg);
+    } catch {
+      res = null;
+    }
+    btn.disabled = false;
+    setText(btn, t('check_button', lang));
+
+    if (!res) {
+      setText(errorEl, 'Something went wrong — try again.');
+      show(errorEl);
+      return;
+    }
+    renderCheckResult(res, lang);
+    show(results);
+  }
+
+  btn.addEventListener('click', runCheck);
+  textarea.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') runCheck();
+  });
+}
+
+/** Renders one CHECK_MESSAGE response into the results section. */
+function renderCheckResult(res, lang) {
+  const { score = 0, verdict = 'safe', firedRules = [], officialContact = null } = res;
+
+  // Score meter
+  setText(document.getElementById('score-value'), String(score));
+  const fill = document.getElementById('score-bar-fill');
+  fill.style.width = score + '%';
+  fill.className = 'score-bar-fill score-fill--' + verdict;
+
+  // Verdict badge + advice
+  const verdictEl = document.getElementById('check-verdict');
+  setText(verdictEl, t('check_verdict_' + verdict, lang));
+  verdictEl.className = 'check-verdict check-verdict--' + verdict;
+  setText(
+    document.getElementById('check-advice'),
+    verdict === 'safe' ? t('check_advice_safe', lang) : t('check_advice_caution', lang)
+  );
+
+  // Fired rules — explanations are data-driven text; render via textContent
+  const rulesHeading = document.getElementById('check-rules-heading');
+  const rulesList = document.getElementById('check-rules-list');
+  rulesList.textContent = '';
+  if (firedRules.length > 0) {
+    show(rulesHeading); show(rulesList);
+    firedRules.forEach((rule) => {
+      const li = document.createElement('li');
+      li.textContent = String(rule.explanation || rule.id);
+      rulesList.appendChild(li);
+    });
+  } else {
+    hide(rulesHeading); hide(rulesList);
+  }
+
+  // Official contact (from known-sender-domains.json — trusted data, still textContent)
+  const contact = document.getElementById('check-contact');
+  const contactLabel = document.getElementById('check-contact-label');
+  const contactLink = document.getElementById('check-contact-link');
+  const contactPhone = document.getElementById('check-contact-phone');
+  if (officialContact && (officialContact.url || officialContact.phone)) {
+    setText(contactLabel,
+      t('check_official_contact', lang).replace('{name}', String(officialContact.name || '')));
+    if (officialContact.url) {
+      contactLink.href = officialContact.url;
+      contactLink.textContent = officialContact.url;
+      show(contactLink);
+    } else {
+      hide(contactLink);
+    }
+    if (officialContact.phone) {
+      contactPhone.textContent = officialContact.phone;
+      show(contactPhone);
+    } else {
+      hide(contactPhone);
+    }
+    show(contact);
+  } else {
+    hide(contact);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Footer wiring
 // ---------------------------------------------------------------------------
 
@@ -232,12 +364,12 @@ async function main() {
   setText(document.getElementById('app-name'), t('app_name', lang));
   setText(document.getElementById('tab-status'), t('popup_tab_status', lang));
   setText(document.getElementById('tab-check'), t('popup_tab_check', lang));
-  setText(document.getElementById('check-coming-soon'), t('popup_check_coming_soon', lang));
 
   // Pre-populate the why-btn label so it renders even before a verdict
   setText(document.getElementById('why-btn'), t('popup_why', lang));
 
   initTabs();
+  initChecker(lang);
   initFooter(lang);
 
   // Query the active tab

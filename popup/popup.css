@@ -370,3 +370,62 @@ body {
   font-size: 0.875rem;
   user-select: none;
 }
+
+/* --------------------------------------------------------------------------
+   Check a message tab (Layer 3)
+   -------------------------------------------------------------------------- */
+.check-heading { font-size: 17px; margin: 4px 0 6px; }
+.check-instructions { font-size: 14px; color: var(--color-muted); margin-bottom: 12px; }
+.check-label { display: block; font-size: 14px; font-weight: 600; margin: 8px 0 4px; }
+.check-input,
+.check-textarea {
+  width: 100%; box-sizing: border-box; font-size: 16px; font-family: inherit;
+  padding: 8px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+}
+.check-textarea { resize: vertical; min-height: 96px; margin-top: 8px; }
+.check-input:focus-visible,
+.check-textarea:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+.check-btn {
+  margin-top: 10px; width: 100%; min-height: 44px; font-size: 16px; font-weight: 600;
+  color: #fff; background: var(--color-tab-active); border: 0; border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.check-btn:disabled { opacity: .6; cursor: default; }
+.check-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+.check-error { color: var(--color-flagged); font-size: 14px; margin-top: 8px; font-weight: 600; }
+
+.check-results { margin-top: 16px; border-top: 1px solid var(--color-border); padding-top: 12px; }
+.check-result-heading { font-size: 15px; margin: 0 0 8px; }
+
+.score-row { display: flex; justify-content: space-between; font-size: 13px; color: var(--color-muted); }
+.score-bar-track {
+  height: 12px; width: 100%; background: #e5e7eb; border-radius: 999px; overflow: hidden; margin: 4px 0 12px;
+}
+.score-bar-fill { height: 100%; width: 0%; border-radius: 999px; transition: width 300ms ease; }
+.score-fill--safe   { background: #1a7340; }
+.score-fill--low    { background: #2563eb; }
+.score-fill--medium { background: #b45309; }
+.score-fill--high   { background: #b91c1c; }
+
+.check-verdict {
+  display: inline-block; font-weight: 700; font-size: 16px; color: #fff;
+  padding: 4px 12px; border-radius: 999px; margin: 0 0 8px;
+}
+.check-verdict--safe   { background: #1a7340; }
+.check-verdict--low    { background: #2563eb; }
+.check-verdict--medium { background: #b45309; }
+.check-verdict--high   { background: #b91c1c; }
+
+.check-advice { font-size: 14px; line-height: 1.5; margin: 0 0 12px; }
+.check-rules-heading { font-size: 14px; margin: 8px 0 4px; }
+.check-rules-list { margin: 0 0 12px; padding-left: 20px; font-size: 14px; line-height: 1.5; }
+.check-rules-list li { margin-bottom: 6px; }
+
+.check-contact { background: var(--color-surface); border-radius: var(--radius-sm); padding: 10px; margin-bottom: 10px; }
+.check-contact-label { font-size: 14px; font-weight: 600; margin: 0 0 4px; }
+.check-contact-link { display: block; font-size: 14px; word-break: break-all; }
+.check-contact-phone { font-size: 15px; font-weight: 700; }
+
+.check-upgrade-hint { font-size: 12px; color: var(--color-muted); margin-top: 8px; }

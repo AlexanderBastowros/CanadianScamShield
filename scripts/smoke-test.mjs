@@ -9,9 +9,17 @@
  * Exit code: 0 = all pass, 1 = one or more failures.
  */
 
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
 import { normalizeHomoglyphs, levenshtein, isDomainLookalike } from '../lib/homoglyph.js';
 import { analyzeUrl } from '../lib/url-analyzer.js';
 import { analyzeContent } from '../lib/content-analyzer.js';
+import { analyzeMessage } from '../lib/message-analyzer.js';
+
+const DATA_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'data');
+const loadData = (name) => JSON.parse(readFileSync(join(DATA_DIR, name), 'utf8'));
 
 // ---------------------------------------------------------------------------
 // Inline fixtures
@@ -378,6 +386,107 @@ const keywords = {
     0,
   );
 }
+
+// ---------------------------------------------------------------------------
+// Layer 3 — message analyzer (uses the REAL bundled data files)
+// ---------------------------------------------------------------------------
+
+const realPatterns      = loadData('scam-sender-patterns.json');
+const realSenderDomains = loadData('known-sender-domains.json');
+const realWhitelist     = loadData('whitelist.json');
+const msgOpts = {
+  patterns: realPatterns,
+  senderDomains: realSenderDomains,
+  whitelist: realWhitelist,
+};
+
+const giftCardMsg = analyzeMessage(
+  'Your payment is overdue. Purchase an iTunes gift card and send us the gift card code immediately.',
+  msgOpts
+);
+assert(
+  'analyzeMessage(gift card demand) → gift_card_payment_request fired',
+  giftCardMsg.firedRules.some((r) => r.id === 'gift_card_payment_request'),
+  true
+);
+assert('analyzeMessage(gift card demand) → score ≥ 55', giftCardMsg.score >= 55, true);
+
+const craGmail = analyzeMessage(
+  'Canada Revenue Agency: your tax refund of $458 is waiting. Click https://cra-refund.xyz/claim',
+  { ...msgOpts, headers: { from: 'CRA Refund <refunds.cra@gmail.com>' } }
+);
+assert(
+  'analyzeMessage(CRA from Gmail) → cra_free_provider fired',
+  craGmail.firedRules.some((r) => r.id === 'cra_free_provider'),
+  true
+);
+assert("analyzeMessage(CRA from Gmail) → verdict not 'safe'", craGmail.verdict !== 'safe', true);
+assert(
+  'analyzeMessage(CRA from Gmail) → officialContact phone is CRA line',
+  craGmail.officialContact?.phone,
+  '1-800-959-8281'
+);
+assert(
+  'analyzeMessage(CRA from Gmail) → link extracted',
+  craGmail.extractedLinks.includes('https://cra-refund.xyz/claim'),
+  true
+);
+assert('analyzeMessage(CRA from Gmail) → senderDomain parsed', craGmail.senderDomain, 'gmail.com');
+
+const imessage = analyzeMessage(
+  'Your package cannot be delivered. Reply Y then exit the message and reopen the link.',
+  msgOpts
+);
+assert(
+  'analyzeMessage(iMessage Y trick) → imessage_evasion_reply_y fired',
+  imessage.firedRules.some((r) => r.id === 'imessage_evasion_reply_y'),
+  true
+);
+
+const sinMsg = analyzeMessage(
+  'To verify your identity please provide your Social Insurance Number.',
+  msgOpts
+);
+assert(
+  'analyzeMessage(SIN request) → sin_request fired',
+  sinMsg.firedRules.some((r) => r.id === 'sin_request'),
+  true
+);
+
+const tollMsg = analyzeMessage(
+  '407 ETR: You have an unpaid toll balance. Pay now at https://407-etr-pay.top/billing',
+  msgOpts
+);
+assert(
+  'analyzeMessage(407 toll smishing) → toll_road_unpaid_link fired',
+  tollMsg.firedRules.some((r) => r.id === 'toll_road_unpaid_link'),
+  true
+);
+
+const benignMsg = analyzeMessage("Hi mom, I'll be home for dinner at 6", msgOpts);
+assert("analyzeMessage(benign text) → 'safe'", benignMsg.verdict, 'safe');
+assert('analyzeMessage(benign text) → score < 30', benignMsg.score < 30, true);
+
+const rcmpMsg = analyzeMessage(
+  'This is the RCMP. A warrant has been issued for your arrest.',
+  { ...msgOpts, headers: { from: 'RCMP <rcmp.canada@gmail.com>' } }
+);
+assert(
+  'analyzeMessage(RCMP from Gmail) → police_free_provider fired',
+  rcmpMsg.firedRules.some((r) => r.id === 'police_free_provider'),
+  true
+);
+
+// French explanations come from user_explanation_fr when lang='fr'
+const sinFr = analyzeMessage(
+  'To verify your identity please provide your Social Insurance Number.',
+  { ...msgOpts, lang: 'fr' }
+);
+assert(
+  'analyzeMessage(lang fr) → French explanation used',
+  sinFr.firedRules[0]?.explanation.includes('assurance sociale'),
+  true
+);
 
 // ---------------------------------------------------------------------------
 // Summary
