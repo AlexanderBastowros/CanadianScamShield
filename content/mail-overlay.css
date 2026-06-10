@@ -1,0 +1,76 @@
+/* content/mail-overlay.css — inline verdict chip for Gmail / Outlook.
+   Scoped under #css-mail-chip so it can't bleed into the mail UI. */
+
+#css-mail-chip.css-mail-chip {
+  all: initial;
+  display: block;
+  box-sizing: border-box;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  color: #1a1a1a;
+  margin: 10px 0;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border-left: 6px solid #888;
+  background: #f3f4f6;
+  max-width: 760px;
+}
+
+#css-mail-chip.css-mail-chip--low    { background: #e7f0fb; border-left-color: #2563eb; }
+#css-mail-chip.css-mail-chip--medium { background: #fff3cd; border-left-color: #b45309; }
+#css-mail-chip.css-mail-chip--high   { background: #f8d7da; border-left-color: #b91c1c; }
+
+#css-mail-chip .css-mail-chip__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+#css-mail-chip .css-mail-chip__badge {
+  font-weight: 700;
+  color: #b3261e;
+}
+
+#css-mail-chip .css-mail-chip__verdict {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+#css-mail-chip .css-mail-chip__advice {
+  margin: 8px 0 6px;
+  font-size: 14px;
+}
+
+#css-mail-chip .css-mail-chip__btn {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  border-radius: 6px;
+  padding: 6px 12px;
+  min-height: 36px;
+  margin: 4px 8px 0 0;
+  cursor: pointer;
+}
+
+#css-mail-chip .css-mail-chip__btn:focus-visible {
+  outline: 3px solid #1a73e8;
+  outline-offset: 2px;
+}
+
+#css-mail-chip .css-mail-chip__reasons {
+  margin: 8px 0;
+  padding-left: 20px;
+  font-size: 14px;
+}
+
+#css-mail-chip .css-mail-chip__reasons li { margin-bottom: 6px; }
+
+#css-mail-chip .css-mail-chip__contact {
+  margin: 8px 0 0;
+  font-size: 14px;
+}

@@ -27,6 +27,17 @@
       "js": ["content/content-script.js"],
       "css": ["content/overlay.css"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://mail.google.com/*",
+        "https://outlook.live.com/*",
+        "https://outlook.office.com/*",
+        "https://outlook.office365.com/*"
+      ],
+      "js": ["content/mail-scanner.js"],
+      "css": ["content/mail-overlay.css"],
+      "run_at": "document_idle"
     }
   ],
 

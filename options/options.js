@@ -465,6 +465,20 @@ function initPhishtank(lang) {
 }
 
 // ---------------------------------------------------------------------------
+// Email scanning toggle (free)
+// ---------------------------------------------------------------------------
+
+function initMailScan(lang) {
+  const toggle = document.getElementById('mailscan-toggle');
+  if (!toggle) return;
+  chrome.storage.sync.get({ mailScanEnabled: true }, (r) => { toggle.checked = r.mailScanEnabled; });
+  toggle.addEventListener('change', () => {
+    chrome.storage.sync.set({ mailScanEnabled: toggle.checked });
+    showSaved(lang);
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Static text population
 // ---------------------------------------------------------------------------
 
@@ -490,6 +504,11 @@ function populateStaticText(lang) {
   setText(document.getElementById('whitelist-desc'),    t('options_whitelist_desc', lang));
   setText(document.getElementById('whitelist-input-label'), t('options_whitelist_placeholder', lang));
   setText(document.getElementById('whitelist-add-btn'), t('options_whitelist_add', lang));
+
+  // Email scanning section
+  setText(document.getElementById('mailscan-heading'), t('options_mail_scan', lang));
+  setText(document.getElementById('mailscan-label'), t('options_mail_scan', lang));
+  setText(document.getElementById('mailscan-note'), t('options_mail_scan_note', lang));
 
   // Shield Pro section
   setText(document.getElementById('pro-heading'), t('options_pro_heading', lang));
@@ -535,6 +554,9 @@ async function main() {
 
   // Populate info section
   initInfoSection(lang);
+
+  // Email scanning (free)
+  initMailScan(lang);
 
   // Pro-related sections (initProSection applies the lock state to gated sections)
   initSensitivity(lang);

@@ -19,10 +19,14 @@ servers, no tracking):
   categories (impersonation / urgency / payment) plus structural credential
   traps (Social Insurance Number fields on non-government sites, passwords over
   HTTP, CVV outside payment processors), and combines with the Layer 1 score.
-- **Layer 3 — message checker:** paste an email or text into the popup; a
-  39-rule engine (built from CAFC bulletins and real 2024–2026 scam samples)
-  explains in plain language what's suspicious and gives you the organization's
-  real contact details.
+- **Layer 3 — message checker:** a 39-rule engine (built from CAFC bulletins and
+  real 2024–2026 scam samples) explains in plain language what's suspicious and
+  gives you the organization's real contact details. Two ways to use it:
+  - **Paste** an email or text into the popup, or
+  - **Automatic webmail scanning** — when you open an email in Gmail or Outlook
+    on the web, the extension reads that open message and shows an inline warning
+    chip if it looks like a scam. The email is analyzed **entirely on your
+    device** and is never sent anywhere; you can turn this off in Settings.
 
 Responses scale with confidence: a quiet badge → a dismissible banner → a
 full-page warning with an explicit override. Bilingual (English/French)
@@ -87,9 +91,9 @@ from this repo's `master/data/` over GitHub raw (version-gated, fail-closed).
 
 ## Privacy
 Free-tier analysis is entirely local — no browsing data, URLs, or messages leave
-your device. The only network calls are: the daily data refresh (GitHub), and —
-**only if you opt in as a Pro user** — PhishTank URL lookups and RDAP domain-age
-checks. No telemetry, ever.
+your device, including emails read by the Gmail/Outlook scanner. The only network
+calls are: the daily data refresh (GitHub), and — **only if you opt in as a Pro
+user** — PhishTank URL lookups and RDAP domain-age checks. No telemetry, ever.
 
 ## Reference numbers
 - Canadian Anti-Fraud Centre: **1-888-495-8501** ·

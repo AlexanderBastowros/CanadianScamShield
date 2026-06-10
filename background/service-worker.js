@@ -21,6 +21,7 @@ import { analyzeContent }  from '../lib/content-analyzer.js';
 import { analyzeMessage }  from '../lib/message-analyzer.js';
 import { getProState, refreshLicenseIfStale } from '../lib/pro.js';
 import { runProChecks } from '../lib/pro-checks.js';
+import { t } from '../lib/i18n.js';
 
 // Public GitHub raw base for live data updates (master branch of this repo).
 const DATA_BASE_URL =
@@ -429,7 +430,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           getSettings(),
           getProState(),
         ]);
-        const headers = msg.sender ? { from: msg.sender } : null;
+        const headers = (msg.sender || msg.subject)
+          ? { from: msg.sender || null, subject: msg.subject || '' }
+          : null;
         const result = analyzeMessage(msg.rawText || '', {
           patterns, senderDomains, whitelist, headers,
           isPro: proState.isPro, lang: settings.language,
@@ -439,6 +442,18 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         console.error('CSS CHECK_MESSAGE error:', err);
         sendResponse({ score: 0, verdict: 'safe', firedRules: [], extractedLinks: [], senderDomain: null, officialContact: null });
       }
+    })();
+    return true;
+  }
+
+  // GET_I18N — content scripts (which can't import lib/i18n.js) request
+  // localized UI strings for the user's current language.
+  if (msg.type === 'GET_I18N') {
+    (async () => {
+      const { language } = await getSettings();
+      const out = {};
+      for (const k of (msg.keys || [])) out[k] = t(k, language);
+      sendResponse({ lang: language, strings: out });
     })();
     return true;
   }
