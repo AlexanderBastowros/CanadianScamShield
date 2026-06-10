@@ -76,6 +76,87 @@
     </section>
 
     <!-- ===================================================
+         SECTION: Shield Pro
+         =================================================== -->
+    <section class="section" id="pro-section" aria-labelledby="pro-heading">
+      <h2 class="section__heading" id="pro-heading"></h2>
+      <p class="section__desc" id="pro-desc"></p>
+
+      <p id="pro-status" class="pro-status" aria-live="polite"></p>
+
+      <div class="whitelist-add-row">
+        <label for="pro-license" class="sr-only" id="pro-license-label"></label>
+        <input type="text" id="pro-license" class="text-input" autocomplete="off"
+               autocapitalize="characters" spellcheck="false">
+        <button id="pro-activate-btn" class="btn btn--primary"></button>
+      </div>
+
+      <button id="pro-upgrade-btn" class="btn btn--upgrade"></button>
+      <p id="pro-upgrade-note" class="field-error" hidden></p>
+    </section>
+
+    <!-- ===================================================
+         SECTION: Sensitivity (Pro-gated)
+         =================================================== -->
+    <section class="section pro-gated" id="sensitivity-section" aria-labelledby="sensitivity-heading">
+      <h2 class="section__heading" id="sensitivity-heading">
+        <span id="sensitivity-heading-text"></span>
+        <span class="pro-lock" id="sensitivity-lock"></span>
+      </h2>
+      <p class="section__desc" id="sensitivity-desc"></p>
+
+      <div class="radio-group" role="radiogroup" aria-labelledby="sensitivity-heading">
+        <label class="radio-label">
+          <input type="radio" name="sensitivity" value="strict" id="sens-strict" class="radio-input">
+          <span class="radio-text" id="label-sens-strict"></span>
+        </label>
+        <label class="radio-label">
+          <input type="radio" name="sensitivity" value="balanced" id="sens-balanced" class="radio-input">
+          <span class="radio-text" id="label-sens-balanced"></span>
+        </label>
+        <label class="radio-label">
+          <input type="radio" name="sensitivity" value="permissive" id="sens-permissive" class="radio-input">
+          <span class="radio-text" id="label-sens-permissive"></span>
+        </label>
+      </div>
+    </section>
+
+    <!-- ===================================================
+         SECTION: Blocked sites (Pro-gated)
+         =================================================== -->
+    <section class="section pro-gated" id="blocklist-section" aria-labelledby="blocklist-heading">
+      <h2 class="section__heading" id="blocklist-heading">
+        <span id="blocklist-heading-text"></span>
+        <span class="pro-lock" id="blocklist-lock"></span>
+      </h2>
+      <p class="section__desc" id="blocklist-desc"></p>
+
+      <div class="whitelist-add-row">
+        <label for="blocklist-input" class="sr-only" id="blocklist-input-label"></label>
+        <input type="text" id="blocklist-input" class="text-input" autocomplete="off"
+               autocapitalize="off" spellcheck="false" inputmode="url">
+        <button id="blocklist-add-btn" class="btn btn--primary"></button>
+      </div>
+      <p id="blocklist-error" class="field-error" hidden aria-live="polite"></p>
+      <ul id="blocklist-list" class="domain-list" aria-label="Blocked sites list" aria-live="polite"></ul>
+    </section>
+
+    <!-- ===================================================
+         SECTION: PhishTank (Pro-gated)
+         =================================================== -->
+    <section class="section pro-gated" id="phishtank-section" aria-labelledby="phishtank-heading">
+      <h2 class="section__heading" id="phishtank-heading">
+        <span id="phishtank-heading-text"></span>
+        <span class="pro-lock" id="phishtank-lock"></span>
+      </h2>
+      <label class="checkbox-label">
+        <input type="checkbox" id="phishtank-toggle" class="checkbox-input">
+        <span id="phishtank-label"></span>
+      </label>
+      <p id="phishtank-note" class="section__desc"></p>
+    </section>
+
+    <!-- ===================================================
          SECTION 3: Info
          =================================================== -->
     <section class="section section--info" aria-labelledby="info-heading">
@@ -92,7 +173,11 @@
         <a id="cafc-link" class="link" target="_blank" rel="noopener noreferrer"></a>
       </p>
 
-      <p id="pro-coming-soon" class="pro-note"></p>
+      <p class="info-line">
+        <span id="data-updated-label"></span>
+        <span id="data-updated-value" class="info-line__value"></span>
+      </p>
+      <button id="update-now-btn" class="btn btn--secondary"></button>
 
     </section>
 

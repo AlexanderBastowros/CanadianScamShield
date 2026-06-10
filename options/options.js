@@ -13,6 +13,7 @@
  */
 
 import { t, detectLanguage } from '../lib/i18n.js';
+import { getProState, verifyLicense, PRO_API_BASE } from '../lib/pro.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -261,8 +262,206 @@ function initInfoSection(lang) {
     cafcLink.href = t('cafc_url', lang);
   }
 
-  // Pro coming soon note
-  setText(document.getElementById('pro-coming-soon'), t('options_pro_coming_soon', lang));
+  // Data-updated line + "Update now" button
+  setText(document.getElementById('data-updated-label'), t('options_data_updated', lang) + ' ');
+  setText(document.getElementById('update-now-btn'), t('options_update_now', lang));
+  chrome.storage.local.get({ dataLastUpdated: null }, (r) => {
+    const val = r.dataLastUpdated ? new Date(r.dataLastUpdated).toLocaleString() : '—';
+    setText(document.getElementById('data-updated-value'), val);
+  });
+
+  const updateBtn = document.getElementById('update-now-btn');
+  updateBtn?.addEventListener('click', async () => {
+    updateBtn.disabled = true;
+    try {
+      const res = await chrome.runtime.sendMessage({ type: 'UPDATE_DATA_NOW' });
+      if (res?.dataLastUpdated) {
+        setText(document.getElementById('data-updated-value'),
+          new Date(res.dataLastUpdated).toLocaleString());
+      }
+      showSaved(lang);
+    } catch { /* ignore */ }
+    updateBtn.disabled = false;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Shield Pro section + Pro gating
+// ---------------------------------------------------------------------------
+
+/** Locks or unlocks every .pro-gated section based on Pro status. */
+function applyProLock(isPro, lang) {
+  document.querySelectorAll('.pro-gated').forEach((section) => {
+    section.classList.toggle('is-locked', !isPro);
+    section.querySelectorAll('input, button').forEach((el) => { el.disabled = !isPro; });
+    const lock = section.querySelector('.pro-lock');
+    if (lock) setText(lock, isPro ? '' : t('options_pro_locked', lang));
+  });
+  // Clicking a locked section nudges the user to the Pro section.
+  document.querySelectorAll('.pro-gated.is-locked').forEach((section) => {
+    section.addEventListener('click', () => {
+      document.getElementById('pro-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, { once: true });
+  });
+}
+
+async function initProSection(lang) {
+  const statusEl  = document.getElementById('pro-status');
+  const licenseIn = document.getElementById('pro-license');
+  const activate  = document.getElementById('pro-activate-btn');
+  const upgrade   = document.getElementById('pro-upgrade-btn');
+  const note      = document.getElementById('pro-upgrade-note');
+
+  licenseIn.placeholder = t('options_pro_license_placeholder', lang);
+
+  const proState = await getProState();
+  function renderState(status) {
+    if (status === 'active') {
+      setText(statusEl, t('options_pro_active', lang));
+      hide(upgrade);
+      applyProLock(true, lang);
+    } else {
+      setText(statusEl, status === 'inactive' ? t('options_pro_inactive', lang) : '');
+      show(upgrade);
+      applyProLock(false, lang);
+    }
+  }
+  renderState(proState.status);
+
+  activate.addEventListener('click', async () => {
+    const key = licenseIn.value.trim().toUpperCase();
+    if (!key) return;
+    setText(statusEl, t('options_pro_checking', lang));
+    const res = await verifyLicense(key);
+    if (res.valid === true) {
+      renderState('active');
+      showSaved(lang);
+    } else if (res.valid === false) {
+      renderState('inactive');
+    } else {
+      setText(statusEl, 'Could not reach the license server — your last status is kept.');
+    }
+  });
+
+  upgrade.addEventListener('click', async () => {
+    hide(note);
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10000);
+      const res = await fetch(`${PRO_API_BASE}/create-checkout-session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      const body = await res.json();
+      if (body?.url) {
+        chrome.tabs.create({ url: body.url });
+      } else {
+        throw new Error('no url');
+      }
+    } catch {
+      setText(note, 'Checkout is not configured yet. See docs/stripe-setup.md.');
+      show(note);
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Sensitivity (Pro-gated)
+// ---------------------------------------------------------------------------
+
+function initSensitivity(lang) {
+  chrome.storage.sync.get({ sensitivity: 'balanced' }, (r) => {
+    const radio = document.querySelector(`input[name="sensitivity"][value="${r.sensitivity}"]`);
+    if (radio) radio.checked = true;
+  });
+  document.querySelectorAll('input[name="sensitivity"]').forEach((radio) => {
+    radio.addEventListener('change', () => {
+      if (!radio.checked) return;
+      chrome.storage.sync.set({ sensitivity: radio.value });
+      showSaved(lang);
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Blocklist (Pro-gated) — mirrors the whitelist manager
+// ---------------------------------------------------------------------------
+
+function renderBlocklist(blocklist, lang) {
+  const list = document.getElementById('blocklist-list');
+  if (!list) return;
+  list.textContent = '';
+  blocklist.forEach((domain) => {
+    const li = document.createElement('li');
+    li.className = 'domain-list__item';
+    const span = document.createElement('span');
+    span.className = 'domain-list__domain';
+    span.textContent = domain;
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'btn btn--remove';
+    removeBtn.textContent = t('options_whitelist_remove', lang);
+    removeBtn.addEventListener('click', () => {
+      chrome.storage.sync.get({ customBlocklist: [] }, (result) => {
+        const updated = result.customBlocklist.filter((d) => d !== domain);
+        chrome.storage.sync.set({ customBlocklist: updated }, () => {
+          renderBlocklist(updated, lang);
+          showSaved(lang);
+        });
+      });
+    });
+    li.appendChild(span);
+    li.appendChild(removeBtn);
+    list.appendChild(li);
+  });
+}
+
+function initBlocklist(lang) {
+  const input  = document.getElementById('blocklist-input');
+  const addBtn = document.getElementById('blocklist-add-btn');
+  const errorEl = document.getElementById('blocklist-error');
+  if (!input || !addBtn) return;
+
+  input.setAttribute('placeholder', t('options_whitelist_placeholder', lang));
+
+  function handleAdd() {
+    const domain = normaliseDomain(input.value);
+    if (!domain || !DOMAIN_REGEX.test(domain)) {
+      setText(errorEl, 'Please enter a valid domain (e.g. example.com).');
+      show(errorEl);
+      return;
+    }
+    hide(errorEl);
+    chrome.storage.sync.get({ customBlocklist: [] }, (result) => {
+      if (result.customBlocklist.includes(domain)) return;
+      const updated = [...result.customBlocklist, domain];
+      chrome.storage.sync.set({ customBlocklist: updated }, () => {
+        renderBlocklist(updated, lang);
+        input.value = '';
+        showSaved(lang);
+      });
+    });
+  }
+  addBtn.addEventListener('click', handleAdd);
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); handleAdd(); } });
+
+  chrome.storage.sync.get({ customBlocklist: [] }, (r) => renderBlocklist(r.customBlocklist, lang));
+}
+
+// ---------------------------------------------------------------------------
+// PhishTank toggle (Pro-gated)
+// ---------------------------------------------------------------------------
+
+function initPhishtank(lang) {
+  const toggle = document.getElementById('phishtank-toggle');
+  if (!toggle) return;
+  chrome.storage.sync.get({ phishtankOptIn: false }, (r) => { toggle.checked = r.phishtankOptIn; });
+  toggle.addEventListener('change', () => {
+    chrome.storage.sync.set({ phishtankOptIn: toggle.checked });
+    showSaved(lang);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -291,6 +490,31 @@ function populateStaticText(lang) {
   setText(document.getElementById('whitelist-desc'),    t('options_whitelist_desc', lang));
   setText(document.getElementById('whitelist-input-label'), t('options_whitelist_placeholder', lang));
   setText(document.getElementById('whitelist-add-btn'), t('options_whitelist_add', lang));
+
+  // Shield Pro section
+  setText(document.getElementById('pro-heading'), t('options_pro_heading', lang));
+  setText(document.getElementById('pro-desc'), t('options_pro_desc', lang));
+  setText(document.getElementById('pro-license-label'), t('options_pro_license_label', lang));
+  setText(document.getElementById('pro-activate-btn'), t('options_pro_activate', lang));
+  setText(document.getElementById('pro-upgrade-btn'), t('options_pro_upgrade', lang));
+
+  // Sensitivity section
+  setText(document.getElementById('sensitivity-heading-text'), t('options_sensitivity', lang));
+  setText(document.getElementById('sensitivity-desc'), t('options_sensitivity_desc', lang));
+  setText(document.getElementById('label-sens-strict'), t('options_sensitivity_strict', lang));
+  setText(document.getElementById('label-sens-balanced'), t('options_sensitivity_balanced', lang));
+  setText(document.getElementById('label-sens-permissive'), t('options_sensitivity_permissive', lang));
+
+  // Blocklist section
+  setText(document.getElementById('blocklist-heading-text'), t('options_blocklist_heading', lang));
+  setText(document.getElementById('blocklist-desc'), t('options_blocklist_desc', lang));
+  setText(document.getElementById('blocklist-input-label'), t('options_whitelist_placeholder', lang));
+  setText(document.getElementById('blocklist-add-btn'), t('options_whitelist_add', lang));
+
+  // PhishTank section
+  setText(document.getElementById('phishtank-heading-text'), t('options_phishtank', lang));
+  setText(document.getElementById('phishtank-label'), t('options_phishtank', lang));
+  setText(document.getElementById('phishtank-note'), t('options_phishtank_note', lang));
 }
 
 // ---------------------------------------------------------------------------
@@ -311,6 +535,12 @@ async function main() {
 
   // Populate info section
   initInfoSection(lang);
+
+  // Pro-related sections (initProSection applies the lock state to gated sections)
+  initSensitivity(lang);
+  initBlocklist(lang);
+  initPhishtank(lang);
+  await initProSection(lang);
 
   // Load saved settings and apply them
   chrome.storage.sync.get({ language: 'en', customWhitelist: [] }, result => {

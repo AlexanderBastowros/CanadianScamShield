@@ -20,6 +20,7 @@ import { analyzeUrl }      from '../lib/url-analyzer.js';
 import { analyzeContent }  from '../lib/content-analyzer.js';
 import { analyzeMessage }  from '../lib/message-analyzer.js';
 import { getProState, refreshLicenseIfStale } from '../lib/pro.js';
+import { runProChecks } from '../lib/pro-checks.js';
 
 // Public GitHub raw base for live data updates (master branch of this repo).
 const DATA_BASE_URL =
@@ -365,12 +366,30 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         // SIN-field detection ships free for now → isPro:true regardless of license.
         const l2 = analyzeContent(msg.features, { keywords, isPro: true });
 
-        const combinedRaw = Math.min(100, l1.score + l2.score);
-        const combined = applySensitivity(combinedRaw, settings.sensitivity);
+        let combinedRaw = Math.min(100, l1.score + l2.score);
 
         const seen = new Set(l1.reasons);
         const mergedReasons = [...l1.reasons];
         for (const r of l2.reasons) if (!seen.has(r)) { seen.add(r); mergedReasons.push(r); }
+
+        // [Pro] Borderline pages get external enrichment (domain age, PhishTank).
+        // Gated to low/medium so most navigations never touch the network.
+        const proState = await getProState();
+        if (proState.isPro && combinedRaw >= 30 && combinedRaw < 80) {
+          const hasInstitutionalClaim =
+            l2.categoriesHit?.includes('impersonation_terms') || !!l1.institutionName;
+          const { phishtankOptIn, phishtankKey } = await chrome.storage.sync.get({
+            phishtankOptIn: false, phishtankKey: '',
+          });
+          const pro = await runProChecks({
+            url, hasInstitutionalClaim, phishtankOptIn, phishtankKey,
+          });
+          combinedRaw = Math.min(100, combinedRaw + pro.extraScore);
+          for (const r of pro.reasons) if (!seen.has(r)) { seen.add(r); mergedReasons.push(r); }
+          if (pro.forceHigh) combinedRaw = 100;
+        }
+
+        const combined = applySensitivity(combinedRaw, settings.sensitivity);
 
         let finalVerdict = bandOf(combined);
         if (VERDICT_RANK[l1.verdict] > VERDICT_RANK[finalVerdict]) finalVerdict = l1.verdict;

@@ -1,65 +1,97 @@
 # Canadian Scam Shield
 
 A Chrome extension (Manifest V3) that helps Canadians — especially seniors and
-newcomers — spot scam websites impersonating Canadian institutions (CRA, banks,
-Canada Post, Interac, IRCC, and more).
+newcomers — spot scams impersonating Canadian institutions (CRA, Service Canada,
+IRCC, Canada Post, Interac, the big banks, Geek Squad/Best Buy, and more).
 
-> **Framing:** This tool *helps you spot scams* — it does not block all scams or
-> guarantee protection. It is not affiliated with the Government of Canada.
+> **Framing:** this tool *helps you spot scams* — it does not block all scams or
+> guarantee protection, and it is not affiliated with the Government of Canada.
 
-## Status — Phase 1a MVP
+## What it does
 
-This is the first milestone: **live URL / website detection (Layer 1)** with a
-warning screen, in-page banner, and a popup status panel. All analysis runs
-locally on your device — no account, no servers, no tracking.
+Three detection layers, all running locally in the free tier (no account, no
+servers, no tracking):
 
-### What works now
-- **Layer 1 URL analysis** on every navigation (`lib/url-analyzer.js`):
-  whitelist match → known-bad match → homoglyph/lookalike scoring against
-  high-value institutions → fake-government TLD enforcement → suspicious TLD,
-  excessive hyphens, raw-IP, punycode, and subdomain-spoofing heuristics.
-- **Verdict → UX response:** clean (clear badge) · low (badge) · medium (in-page
-  banner) · high (full-page warning with explicit override).
-- **Popup** showing the current tab's safety status with plain-language reasons.
-- **Options** page: language (EN/FR) and a personal trusted-sites list.
-- **EN-first, i18n-ready** strings via `lib/i18n.js` (French scaffolded).
+- **Layer 1 — websites (URL):** whitelist of 372 verified Canadian institutions,
+  homoglyph/look-alike detection, fake-`.gc.ca` enforcement, suspicious TLDs,
+  raw-IP, punycode, and subdomain-spoofing heuristics.
+- **Layer 2 — page content:** scores the loaded page against scam keyword
+  categories (impersonation / urgency / payment) plus structural credential
+  traps (Social Insurance Number fields on non-government sites, passwords over
+  HTTP, CVV outside payment processors), and combines with the Layer 1 score.
+- **Layer 3 — message checker:** paste an email or text into the popup; a
+  39-rule engine (built from CAFC bulletins and real 2024–2026 scam samples)
+  explains in plain language what's suspicious and gives you the organization's
+  real contact details.
 
-### Out of scope for this milestone
-Email/SMS message checker (Layer 3), page-content scanner (Layer 2), daily data
-auto-update, full French translations, and all Shield Pro features
-(PhishTank/WHOIS/SIN/auth-header, Stripe billing).
+Responses scale with confidence: a quiet badge → a dismissible banner → a
+full-page warning with an explicit override. Bilingual (English/French)
+throughout.
+
+## Free vs Shield Pro
+
+| | Free "Shield" | Shield Pro — $3.99/mo |
+|---|---|---|
+| All three detection layers | ✅ | ✅ |
+| SIN-field detection | ✅ | ✅ |
+| Sensitivity control (Strict/Balanced/Permissive) | — | ✅ |
+| Custom block list | — | ✅ |
+| Live PhishTank lookups | — | ✅ |
+| Domain-age (WHOIS/RDAP) checks | — | ✅ |
+| Auth-header (SPF/DKIM/DMARC) analysis | — | ✅ |
+
+Billing is handled on the web via Stripe (see `docs/stripe-setup.md`) to avoid
+browser-store cuts. The backend is a single Cloudflare Worker in `server/`.
 
 ## Project layout
 ```
-manifest.json              MV3 config
-background/service-worker.js  navigation analysis + verdict dispatch + data loader
-lib/url-analyzer.js        Layer 1 detection (pure, Node-testable)
-lib/homoglyph.js           Unicode normalization + Levenshtein
-lib/i18n.js                bilingual strings (EN complete, FR stub)
-content/                   in-page warning banner + styles
-warning/                   full-page block screen
-popup/                     current-tab status + (stubbed) message checker tab
-options/                   settings (language, personal whitelist)
-data/whitelist.json        372 verified Canadian institutions
-data/known-bad.json        confirmed-malicious seed (empty for now)
-scripts/smoke-test.mjs     Node smoke test for the detection logic
-docs/                      Phase 1 handoff + task prompts
+manifest.json                 MV3 config (v1.0.0)
+background/service-worker.js   analysis pipeline, routing, data updates, alarms
+lib/
+  url-analyzer.js              Layer 1 (pure, tested)
+  content-analyzer.js          Layer 2 (pure, tested)
+  message-analyzer.js          Layer 3 rule engine (pure, tested)
+  homoglyph.js                 Unicode normalize + Levenshtein
+  i18n.js                      EN/FR strings (complete)
+  pro.js                       Shield Pro license state
+  pro-checks.js                PhishTank + RDAP domain-age (Pro)
+content/                       in-page warning banner
+warning/                       full-page block screen
+popup/                         status tab + message checker
+options/                       settings: language, lists, sensitivity, Pro
+data/                          whitelist (372), patterns (39 rules), sender
+                               domains (30), keywords, known-bad
+server/                        Cloudflare Worker: Stripe checkout + licenses
+scripts/smoke-test.mjs         43 Node assertions across all three layers
+test/                          local fake pages for manual testing
+docs/                          handoff, task prompts, Stripe setup
 ```
 
 ## Load it in Chrome
-1. Go to `chrome://extensions`
-2. Enable **Developer mode** (top right)
-3. **Load unpacked** → select this repository folder
-4. Visit a site such as `https://www.canada.ca` (clean) or a crafted lookalike
-   to see the warning flow.
+1. `chrome://extensions` → enable **Developer mode**
+2. **Load unpacked** → select this repository folder
+3. Visit `https://www.canada.ca` (clean) or serve the test pages (below).
 
-## Run the detection tests (no browser needed)
+## Test
 ```
-node scripts/smoke-test.mjs
+node scripts/smoke-test.mjs          # 43 assertions across all 3 layers
+python3 -m http.server 8000          # then open the test pages over http://
 ```
-Covers homoglyph normalization, Levenshtein distances, and the key URL-verdict
-cases (whitelist safe, Cyrillic lookalike, fake-CRA TLD, subdomain spoof, raw IP).
+- `http://localhost:8000/test/scam-test-page.html` → full-page warning
+- `http://localhost:8000/test/benign-test-page.html` → no warning
+- Popup → **Check a message** → paste a scam email/text to see Layer 3.
+
+## Data updates
+The five JSON data files are bundled, and the service worker refreshes them daily
+from this repo's `master/data/` over GitHub raw (version-gated, fail-closed).
+
+## Privacy
+Free-tier analysis is entirely local — no browsing data, URLs, or messages leave
+your device. The only network calls are: the daily data refresh (GitHub), and —
+**only if you opt in as a Pro user** — PhishTank URL lookups and RDAP domain-age
+checks. No telemetry, ever.
 
 ## Reference numbers
 - Canadian Anti-Fraud Centre: **1-888-495-8501** ·
   antifraudcentre-centreantifraude.ca
+- CRA legitimate line: 1-800-959-8281

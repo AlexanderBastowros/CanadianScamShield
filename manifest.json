@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Canadian Scam Shield",
-  "version": "0.1.0",
-  "description": "Helps Canadians spot scam websites that impersonate the CRA, banks, Canada Post, and other trusted organizations.",
+  "version": "1.0.0",
+  "description": "Helps Canadians spot scam websites, emails, and texts that impersonate the CRA, banks, Canada Post, and other trusted organizations.",
 
   "permissions": [
     "storage",
