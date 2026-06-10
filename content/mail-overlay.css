@@ -74,3 +74,50 @@
   margin: 8px 0 0;
   font-size: 14px;
 }
+
+/* Manual "Scan this email" floating action button */
+#css-mail-fab.css-mail-fab {
+  all: initial;
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 2147483646;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  background: #b3261e;
+  border-radius: 999px;
+  padding: 12px 18px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+#css-mail-fab.css-mail-fab:focus-visible { outline: 3px solid #1a73e8; outline-offset: 2px; }
+
+/* Floating verdict chip (manual fallback when there's no subject anchor) */
+#css-mail-chip.css-mail-chip--floating {
+  position: fixed;
+  right: 18px;
+  bottom: 70px;
+  z-index: 2147483646;
+  max-width: 380px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* Self-dismissing status toast */
+#css-mail-toast.css-mail-toast {
+  all: initial;
+  position: fixed;
+  right: 18px;
+  bottom: 70px;
+  z-index: 2147483646;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  color: #1a1a1a;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 12px 14px;
+  max-width: 320px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+}

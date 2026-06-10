@@ -26,7 +26,9 @@ servers, no tracking):
   - **Automatic webmail scanning** — when you open an email in Gmail or Outlook
     on the web, the extension reads that open message and shows an inline warning
     chip if it looks like a scam. The email is analyzed **entirely on your
-    device** and is never sent anywhere; you can turn this off in Settings.
+    device** and is never sent anywhere; you can turn this off in Settings. A
+    floating **“Scan this email”** button is always available as a manual
+    fallback (it also scans your current text selection if auto-detection misses).
 
 Responses scale with confidence: a quiet badge → a dismissible banner → a
 full-page warning with an explicit override. Bilingual (English/French)
@@ -79,6 +81,8 @@ docs/                          handoff, task prompts, Stripe setup
 ## Test
 ```
 node scripts/smoke-test.mjs          # 43 assertions across all 3 layers
+npm install jsdom                     # one-time, for the mail DOM test
+node scripts/mail-dom-test.mjs        # webmail scanner against fake Gmail/Outlook DOMs
 python3 -m http.server 8000          # then open the test pages over http://
 ```
 - `http://localhost:8000/test/scam-test-page.html` → full-page warning

@@ -39,6 +39,9 @@
     check_advice_caution:
       'Do not click links, call numbers, or send money or codes from this message. '
       + 'Contact the organization using a number you find yourself.',
+    mail_scan_button: 'Scan this email',
+    mail_no_email:
+      'Couldn’t find an open email. Select the message text, then click "Scan this email" again.',
   };
 
   let lastSignature = null;
@@ -71,7 +74,7 @@
       let text = '';
       const anchors = [];
       bodyEls.forEach((b) => {
-        text += '\n' + (b.innerText || '');
+        text += '\n' + (b.innerText || b.textContent || '');
         b.querySelectorAll('a[href]').forEach((a) => {
           if (anchors.length < CAP_ANCHORS) anchors.push({ href: a.href, text: (a.textContent || '').trim() });
         });
@@ -93,7 +96,7 @@
       if (senderEl) sender = senderEl.getAttribute('title') || senderEl.textContent || '';
 
       const doc = main.querySelector('div[role="document"]') || main;
-      const text = doc.innerText || '';
+      const text = doc.innerText || doc.textContent || '';
       const anchors = [];
       doc.querySelectorAll('a[href]').forEach((a) => {
         if (anchors.length < CAP_ANCHORS) anchors.push({ href: a.href, text: (a.textContent || '').trim() });
@@ -245,10 +248,88 @@
     dismiss.addEventListener('click', () => chip.remove());
     chip.appendChild(dismiss);
 
-    // Insert just after the subject/heading element
-    if (anchorEl.parentNode) {
+    // Insert just after the subject/heading element, or float it if we have no
+    // anchor (manual-scan fallback path).
+    if (anchorEl && anchorEl.parentNode) {
       anchorEl.parentNode.insertBefore(chip, anchorEl.nextSibling);
+    } else {
+      chip.classList.add('css-mail-chip--floating');
+      document.body.appendChild(chip);
     }
+  }
+
+  // -------------------------------------------------------------------------
+  // Manual fallback — floating "Scan this email" button
+  // -------------------------------------------------------------------------
+
+  /**
+   * Forces a scan even if auto-detection's signature guard would skip it.
+   * If the provider selectors find no open email, falls back to the user's
+   * current text selection, then to the page's main text — so the user always
+   * has a way to check a message the automatic path missed.
+   */
+  function forceScan() {
+    lastSignature = null;
+    let email = null;
+    try {
+      const provider = detectProvider();
+      if (provider) email = provider();
+    } catch { email = null; }
+
+    if (email && email.insertAfter) {
+      const rawText = buildRawText(email);
+      sendForRender(rawText, email.sender, email.subject, email.insertAfter);
+      return;
+    }
+
+    // Fallback: selection → main text
+    let text = '';
+    try { text = (window.getSelection && window.getSelection().toString()) || ''; } catch { text = ''; }
+    if (!text.trim()) {
+      const main = document.querySelector('div[role="main"]') || document.body;
+      text = (main && (main.innerText || main.textContent)) || '';
+    }
+    text = text.slice(0, CAP_TEXT).trim();
+    if (!text) { toast(L.mail_no_email); return; }
+    sendForRender(text, '', '', null); // floating chip
+  }
+
+  function sendForRender(rawText, sender, subject, anchorEl) {
+    try {
+      chrome.runtime.sendMessage(
+        { type: 'CHECK_MESSAGE', rawText, sender: sender, subject: subject },
+        (result) => {
+          if (chrome.runtime.lastError || !result) return;
+          if (result.verdict === 'safe') { toast(L.mail_chip_safe || 'No obvious scam signs'); return; }
+          renderChip(result, anchorEl);
+        }
+      );
+    } catch { /* context invalidated */ }
+  }
+
+  /** Brief, self-dismissing status message (used by the manual path). */
+  function toast(message) {
+    const existing = document.getElementById('css-mail-toast');
+    if (existing) existing.remove();
+    const el = document.createElement('div');
+    el.id = 'css-mail-toast';
+    el.className = 'css-mail-toast';
+    el.setAttribute('role', 'status');
+    el.textContent = message;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+  }
+
+  /** Injects the persistent "Scan this email" floating action button once. */
+  function ensureFab() {
+    if (document.getElementById('css-mail-fab')) return;
+    const fab = document.createElement('button');
+    fab.id = 'css-mail-fab';
+    fab.type = 'button';
+    fab.className = 'css-mail-fab';
+    fab.textContent = '🛡 ' + (L.mail_scan_button || 'Scan this email');
+    fab.addEventListener('click', forceScan);
+    document.body.appendChild(fab);
   }
 
   // -------------------------------------------------------------------------
@@ -265,15 +346,20 @@
             'app_name', 'popup_why', 'banner_dismiss',
             'check_verdict_low', 'check_verdict_medium', 'check_verdict_high',
             'check_official_contact', 'check_advice_caution',
+            'mail_scan_button', 'mail_no_email', 'mail_chip_safe',
           ],
         },
         (resp) => {
           if (!chrome.runtime.lastError && resp && resp.strings) {
             L = Object.assign(L, resp.strings);
+            const fab = document.getElementById('css-mail-fab');
+            if (fab) fab.textContent = '🛡 ' + L.mail_scan_button;
           }
         }
       );
     } catch { /* ignore */ }
+
+    ensureFab();
 
     // Debounced re-evaluation on DOM changes (SPA navigation between emails)
     const observer = new MutationObserver(() => {
@@ -288,13 +374,21 @@
     setTimeout(evaluateOpenEmail, 1200);
   }
 
-  // Respect the user's setting (default ON).
-  try {
-    chrome.storage.sync.get({ mailScanEnabled: true }, (s) => {
-      if (chrome.runtime.lastError) { start(); return; }
-      if (s.mailScanEnabled) start();
-    });
-  } catch {
-    start();
+  // Expose internals for Node/jsdom testing (no-op in the browser, where there
+  // is no CommonJS `module`).
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { PROVIDERS, detectProvider, buildRawText, evaluateOpenEmail, forceScan, renderChip, start };
+  }
+
+  // Auto-start only inside the extension (where chrome.storage exists).
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
+    try {
+      chrome.storage.sync.get({ mailScanEnabled: true }, (s) => {
+        if (chrome.runtime.lastError) { start(); return; }
+        if (s.mailScanEnabled) start();
+      });
+    } catch {
+      start();
+    }
   }
 })();
