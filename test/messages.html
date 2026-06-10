@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<!-- TEST FIXTURE — Canadian Scam Shield. Layer 3 message samples.
+     Scam text is base64-encoded and only written to the clipboard on click, so
+     this page contains NO scam keywords in its visible DOM and is not flagged. -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Message checker — test samples</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #222; }
+    .test-banner { background: #ede9fe; border: 2px dashed #6d28d9; color: #4c1d95; padding: 12px 16px; border-radius: 8px; font-weight: 700; }
+    ol { list-style: none; padding: 0; }
+    .sample { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 16px 20px; margin: 16px 0; }
+    .sample h2 { font-size: 17px; margin: 0 0 4px; }
+    .expect { color: #555; font-size: 14px; margin: 0 0 12px; }
+    .copy-btn { font-size: 15px; padding: 10px 16px; border: 0; border-radius: 6px; background: #6d28d9; color: #fff; cursor: pointer; min-height: 44px; }
+    .copy-btn:focus-visible { outline: 3px solid #1a73e8; outline-offset: 2px; }
+    .copied { margin-left: 10px; color: #166534; font-weight: 600; font-size: 14px; }
+    .how { background: #f7f7f5; border-radius: 8px; padding: 16px 20px; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="test-banner" role="note">
+    🧪 Layer 3 test samples — copy one, then open the extension popup → “Check a message” → paste → “Check it”.
+  </div>
+  <div class="how">
+    <p><strong>How to use:</strong> click a “Copy” button, click the Canadian
+    Scam Shield icon, switch to the <em>Check a message</em> tab, paste, and press
+    <em>Check it</em>. The wording of each sample is hidden from this page on purpose.</p>
+  </div>
+  <ol>
+
+    <li class="sample">
+      <h2>Sample A</h2>
+      <p class="expect">Expected verdict: Medium</p>
+      <button class="copy-btn" data-b64="RnJvbTogQ1JBIFJlZnVuZCA8cmVmdW5kcy5jcmFAZ21haWwuY29tPgpDYW5hZGEgUmV2ZW51ZSBBZ2VuY3k6IHlvdXIgdGF4IHJlZnVuZCBvZiAkNDU4LjIxIGlzIHJlYWR5LiBDbGljayBodHRwczovL2NyYS1yZWZ1bmQueHl6L2NsYWltIHdpdGhpbiAyNCBob3VycyB0byByZWNlaXZlIHlvdXIgR1NUL0hTVCByZWZ1bmQu" type="button">Copy this sample to clipboard</button>
+      <span class="copied" id="copied-0" hidden>Copied ✓ — now paste it into the popup</span>
+    </li>
+
+    <li class="sample">
+      <h2>Sample B</h2>
+      <p class="expect">Expected verdict: Medium / High</p>
+      <button class="copy-btn" data-b64="RnJvbTogQmlsbGluZyA8c3VwcG9ydEBhY2NvdW50LWJpbGxpbmcueHl6PgpZb3VyIHBheW1lbnQgaXMgb3ZlcmR1ZS4gUHVyY2hhc2UgYW4gaVR1bmVzIGdpZnQgY2FyZCBhbmQgc2VuZCB1cyB0aGUgZ2lmdCBjYXJkIGNvZGUgaW1tZWRpYXRlbHkgdG8gYXZvaWQgc3VzcGVuc2lvbi4=" type="button">Copy this sample to clipboard</button>
+      <span class="copied" id="copied-1" hidden>Copied ✓ — now paste it into the popup</span>
+    </li>
+
+    <li class="sample">
+      <h2>Sample C</h2>
+      <p class="expect">Expected verdict: Medium</p>
+      <button class="copy-btn" data-b64="WW91ciBwYWNrYWdlIGNhbm5vdCBiZSBkZWxpdmVyZWQgZHVlIHRvIGFuIGluY29tcGxldGUgYWRkcmVzcy4gUmVwbHkgWSwgdGhlbiBleGl0IHRoZSBtZXNzYWdlIGFuZCByZW9wZW4gdGhlIGxpbmsgdG8gcmVzY2hlZHVsZSBkZWxpdmVyeS4=" type="button">Copy this sample to clipboard</button>
+      <span class="copied" id="copied-2" hidden>Copied ✓ — now paste it into the popup</span>
+    </li>
+
+    <li class="sample">
+      <h2>Sample D</h2>
+      <p class="expect">Expected verdict: Medium</p>
+      <button class="copy-btn" data-b64="NDA3IEVUUjogWW91IGhhdmUgYW4gdW5wYWlkIHRvbGwgYmFsYW5jZSBvZiAkNi40NS4gUGF5IG5vdyBhdCBodHRwczovLzQwNy1ldHItcGF5LnRvcC9iaWxsaW5nIG9yIGEgbGF0ZSBmZWUgd2lsbCBhcHBseS4=" type="button">Copy this sample to clipboard</button>
+      <span class="copied" id="copied-3" hidden>Copied ✓ — now paste it into the popup</span>
+    </li>
+
+    <li class="sample">
+      <h2>Sample E</h2>
+      <p class="expect">Expected verdict: Medium</p>
+      <button class="copy-btn" data-b64="RnJvbTogUkNNUCA8cmNtcC5jYW5hZGFAZ21haWwuY29tPgpUaGlzIGlzIHRoZSBSQ01QLiBBIHdhcnJhbnQgaGFzIGJlZW4gaXNzdWVkIGZvciB5b3VyIGFycmVzdC4gQ2FsbCB1cyBpbW1lZGlhdGVseSB0byBhdm9pZCBjcmltaW5hbCBjaGFyZ2VzLg==" type="button">Copy this sample to clipboard</button>
+      <span class="copied" id="copied-4" hidden>Copied ✓ — now paste it into the popup</span>
+    </li>
+
+    <li class="sample">
+      <h2>Sample F</h2>
+      <p class="expect">Expected verdict: Medium</p>
+      <button class="copy-btn" data-b64="VG8gdmVyaWZ5IHlvdXIgaWRlbnRpdHkgYW5kIHJlbGVhc2UgeW91ciBiZW5lZml0cywgcGxlYXNlIHJlcGx5IHdpdGggeW91ciBTb2NpYWwgSW5zdXJhbmNlIE51bWJlciBhbmQgZGF0ZSBvZiBiaXJ0aC4=" type="button">Copy this sample to clipboard</button>
+      <span class="copied" id="copied-5" hidden>Copied ✓ — now paste it into the popup</span>
+    </li>
+
+    <li class="sample">
+      <h2>Sample G</h2>
+      <p class="expect">Expected verdict: Medium</p>
+      <button class="copy-btn" data-b64="RnJvbTogR2VlayBTcXVhZCA8YmlsbGluZ0BnZWVrc3F1YWQtcmVuZXdhbC5jb20+CllvdXIgc3Vic2NyaXB0aW9uIGhhcyBiZWVuIHJlbmV3ZWQuIFlvdXIgYWNjb3VudCBoYXMgYmVlbiBkZWJpdGVkICQ0OTkuOTkgZm9yIEdlZWsgU3F1YWQgUHJvdGVjdGlvbi4gVG8gY2FuY2VsLCBjYWxsIDEtODg4LTU1NS0wMTQyLg==" type="button">Copy this sample to clipboard</button>
+      <span class="copied" id="copied-6" hidden>Copied ✓ — now paste it into the popup</span>
+    </li>
+
+    <li class="sample">
+      <h2>Sample H</h2>
+      <p class="expect">Expected verdict: Medium</p>
+      <button class="copy-btn" data-b64="Q2FuYWRhIFBvc3Q6IFdlIHdlcmUgdW5hYmxlIHRvIGRlbGl2ZXIgeW91ciBwYXJjZWwuIEEgc21hbGwgcmVkZWxpdmVyeSBmZWUgaXMgcmVxdWlyZWQuIENvbmZpcm0gYXQgaHR0cHM6Ly9jYW5hZGFwb3N0LXJlZGVsaXZlcnkudG9wL3BheQ==" type="button">Copy this sample to clipboard</button>
+      <span class="copied" id="copied-7" hidden>Copied ✓ — now paste it into the popup</span>
+    </li>
+
+    <li class="sample">
+      <h2>Sample I</h2>
+      <p class="expect">Expected verdict: Safe (control)</p>
+      <button class="copy-btn" data-b64="RnJvbTogTW9tIDxtb21AZXhhbXBsZS5jb20+CkhpIHN3ZWV0aWUsIGRpbm5lcidzIGF0IDYuIENhbiB5b3UgZ3JhYiBtaWxrIG9uIHRoZSB3YXkgaG9tZT8gTG92ZSB5b3Uu" type="button">Copy this sample to clipboard</button>
+      <span class="copied" id="copied-8" hidden>Copied ✓ — now paste it into the popup</span>
+    </li>
+  </ol>
+  <p><a href="index.html">← Back to the test hub</a></p>
+  <script>
+    document.querySelectorAll('.copy-btn').forEach(function (btn, i) {
+      btn.addEventListener('click', function () {
+        var text = atob(btn.getAttribute('data-b64'));
+        navigator.clipboard.writeText(text).then(function () {
+          var note = document.getElementById('copied-' + i);
+          if (note) { note.hidden = false; setTimeout(function () { note.hidden = true; }, 4000); }
+        });
+      });
+    });
+  </script>
+</body>
+</html>
