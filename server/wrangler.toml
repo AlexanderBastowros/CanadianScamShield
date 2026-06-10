@@ -1,0 +1,19 @@
+# Cloudflare Worker config — Canadian Scam Shield / Shield Pro backend
+#
+# Secrets (set via `wrangler secret put <NAME>` — never commit these):
+#   STRIPE_SECRET_KEY      sk_live_... or sk_test_...
+#   STRIPE_PRICE_ID        price_... (the $3.99 CAD/month recurring price)
+#   STRIPE_WEBHOOK_SECRET  whsec_... (from the Stripe webhook endpoint)
+
+name = "canadian-scam-shield-pro"
+main = "worker.js"
+compatibility_date = "2026-06-01"
+
+[[kv_namespaces]]
+binding = "LICENSES"
+id = "REPLACE_ME"   # ← paste the id from: wrangler kv namespace create LICENSES
+
+[vars]
+# After first deploy, set these to your real worker URL.
+SUCCESS_URL = "https://canadian-scam-shield-pro.YOUR-SUBDOMAIN.workers.dev/success"
+CANCEL_URL  = "https://canadian-scam-shield-pro.YOUR-SUBDOMAIN.workers.dev/"
