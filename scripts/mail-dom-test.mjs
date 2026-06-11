@@ -49,7 +49,31 @@ const BENIGN_GMAIL = `
   <div class="gE"><span class="gD" email="mom@example.com">Mom</span></div>
   <div class="ii gt"><div class="a3s aiL">Hi sweetie, dinner's at 6. Love you.</div></div>`;
 
-/** Runs mail-scanner.js inside a fresh jsdom at `url` with body `html`. */
+// Spam-folder rendering of the "Trusted Sender" cloud-storage scam: the .gD
+// span has NO email attribute — the address only appears as visible text in
+// the .go span — and the DOM contains decoy span[email] nodes (a thread-list
+// row and the "to me" recipient) that a naive selector would pick up instead.
+const GMAIL_SPAM_TEXT_ONLY_SENDER = `
+  <div class="ae4"><span class="yP" email="newsletter@joescafe.com">Joe Cafe</span></div>
+  <div class="bq9"><h2 class="hP">Final notice: Your files will be deleted today...Thu, 11 Jun 2026 13:36:54 +0000</h2></div>
+  <div class="gE iv gt">
+    <span class="gD" name="Payment_Declined">Payment_Declined</span>
+    <span class="go">&lt;cabgwdnlxec@fcbjwziut.briefing.perks.lioraz.biz.id&gt;</span>
+    <span>(sent by Trusted Sender)</span>
+    <span class="g2" email="victim@gmail.com">me</span>
+  </div>
+  <div class="ii gt"><div class="a3s aiL">
+    Your payment method has expired. Update your payment information to keep your
+    service active. Your Cloud Storage has been Disabled. We were unable to renew
+    your Cloud Storage. Without space on your Cloud, your data and files may be lost.
+    Order details: Subscription plan 250GB, Product Cloud Storage, Expires 06-11-2026.
+  </div></div>`;
+
+/**
+ * Runs mail-scanner.js inside a fresh jsdom at `url` with body `html`.
+ * Returns the document; the last CHECK_MESSAGE payload sent to the (mock)
+ * service worker is exposed on `document._lastCheck` for assertions.
+ */
 async function runScenario(url, html) {
   const dom = new JSDOM(`<!DOCTYPE html><html><body>${html}</body></html>`, { url });
   const { window } = dom;
@@ -61,6 +85,7 @@ async function runScenario(url, html) {
       sendMessage(msg, cb) {
         if (msg.type === 'GET_I18N') { cb && cb({ lang: 'en', strings: {} }); return; }
         if (msg.type === 'CHECK_MESSAGE') {
+          window.document._lastCheck = msg;
           const headers = (msg.sender || msg.subject) ? { from: msg.sender, subject: msg.subject } : null;
           const result = analyzeMessage(msg.rawText || '', { patterns, senderDomains, whitelist, headers });
           cb && cb(result);
@@ -103,6 +128,19 @@ async function runScenario(url, html) {
   const chip = doc.getElementById('css-mail-chip');
   ok('Outlook scam → chip injected', !!chip);
   ok('Outlook scam → non-safe verdict', chip && /css-mail-chip--(low|medium|high)/.test(chip.className));
+}
+
+// --- Gmail spam view: sender only in visible text + decoy span[email]s ---
+{
+  const doc = await runScenario('https://mail.google.com/mail/u/0/#spam/FMfcgz', GMAIL_SPAM_TEXT_ONLY_SENDER);
+  const chip = doc.getElementById('css-mail-chip');
+  const sentSender = (doc._lastCheck && doc._lastCheck.sender) || '';
+  ok('Gmail spam (text-only sender) → scam address extracted',
+    sentSender.includes('cabgwdnlxec@fcbjwziut.briefing.perks.lioraz.biz.id'));
+  ok('Gmail spam (text-only sender) → recipient/list addresses NOT used',
+    !sentSender.includes('victim@gmail.com') && !sentSender.includes('newsletter@joescafe.com'));
+  ok('Gmail spam (text-only sender) → chip injected', !!chip);
+  ok('Gmail spam (text-only sender) → high verdict', chip && /css-mail-chip--high/.test(chip.className));
 }
 
 // --- Gmail: benign email → no chip (stays quiet) ---

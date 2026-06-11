@@ -1,6 +1,6 @@
 {
-  "version": "1.1.0",
-  "last_updated": "2026-05-27",
+  "version": "1.2.0",
+  "last_updated": "2026-06-11",
   "description": "Rule-based scam detection patterns for email and SMS analysis. v1.1 updated from research against r/Scams, CAFC bulletins, news reports of active Canadian scam campaigns, and real sample emails (2024-2026). The analyzer evaluates each rule against a parsed message and accumulates weighted scores. Rules are intentionally narrow and composable — a real scam typically trips 3-5 rules, while a legitimate message trips 0-1.",
   "sources": [
     "Canadian Anti-Fraud Centre bulletins 2024-2026",
@@ -920,6 +920,49 @@
       },
       "user_explanation": "No legitimate organization accepts gift cards as payment. If a 'CRA agent', 'Microsoft tech', 'police officer', or any other authority asks you to buy gift cards from a store and read the codes back, hang up — full stop.",
       "user_explanation_fr": "Aucune organisation légitime n'accepte les cartes-cadeaux comme paiement. Si un « agent de l'ARC », un « technicien Microsoft », un « policier » ou toute autre autorité vous demande d'acheter des cartes-cadeaux en magasin et de lire les codes, raccrochez — point final."
+    },
+    {
+      "id": "cloud_storage_renewal_scam",
+      "type": "subscription_renewal_lure",
+      "weight": 45,
+      "description": "Fake cloud-storage renewal template ('Trusted Sender' spam wave, 2024-2026): a generic 'Cloud' brand claims the payment method expired and threatens that files will be deleted/lost. Content-only on purpose — it must still fire when the sender address cannot be extracted, since the same template ships from throwaway domains that the reputation heuristics would otherwise catch.",
+      "match": {
+        "body_contains_all_of": [
+          [
+            "cloud storage",
+            "icloud storage",
+            "google drive",
+            "onedrive",
+            "dropbox",
+            "stockage cloud",
+            "stockage infonuagique"
+          ],
+          [
+            "payment method has expired",
+            "payment has expired",
+            "payment was declined",
+            "payment declined",
+            "unable to renew",
+            "payment attempt failed",
+            "update your payment information",
+            "mode de paiement a expiré",
+            "paiement a été refusé",
+            "impossible de renouveler"
+          ],
+          [
+            "files will be deleted",
+            "files may be lost",
+            "will be permanently deleted",
+            "storage has been disabled",
+            "account will be closed",
+            "fichiers seront supprimés",
+            "fichiers peuvent être perdus",
+            "stockage a été désactivé"
+          ]
+        ]
+      },
+      "user_explanation": "This matches a mass-spam template: a vague 'Cloud Storage' service claims your payment failed and your files will be deleted today. Real providers (Google, Apple, Microsoft, Dropbox) name themselves, write from their own domain, and never delete your files the same day. Check your storage directly in the app or site you actually use.",
+      "user_explanation_fr": "Ceci correspond à un modèle de pourriel de masse : un vague service de « stockage cloud » prétend que votre paiement a échoué et que vos fichiers seront supprimés aujourd'hui. Les vrais fournisseurs (Google, Apple, Microsoft, Dropbox) se nomment, écrivent depuis leur propre domaine et ne suppriment jamais vos fichiers le jour même. Vérifiez votre stockage directement dans l'application ou le site que vous utilisez réellement."
     },
     {
       "id": "perfect_grammar_with_red_flags",

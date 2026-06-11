@@ -583,6 +583,30 @@ assert(
   true
 );
 
+// The cloud-storage renewal template must be caught on content alone — some
+// Gmail views expose no machine-readable sender address, so the reputation
+// heuristics never see the throwaway domain.
+const cloudBody =
+  'Your payment method has expired. Update your payment information to keep your '
+  + 'service active. Your Cloud Storage has been Disabled. Without space on your '
+  + 'Cloud, your data and files may be lost.';
+const cloudNoSender = analyzeMessage(cloudBody, { ...msgOpts });
+assert(
+  'analyzeMessage(cloud-storage template, no sender) → flagged',
+  cloudNoSender.verdict !== 'safe',
+  true
+);
+assert(
+  'analyzeMessage(cloud-storage template, no sender) → cloud_storage_renewal_scam fired',
+  cloudNoSender.firedRules.some((r) => r.id === 'cloud_storage_renewal_scam'),
+  true
+);
+// …while a verified provider discussing the same topic stays quiet.
+const cloudVerified = analyzeMessage(cloudBody, {
+  ...msgOpts, headers: { from: 'Google One <noreply@google.com>' },
+});
+assert("analyzeMessage(cloud-storage topic, verified google.com) → 'safe'", cloudVerified.verdict, 'safe');
+
 // Reputation must NOT fire on legitimate / verified / normal senders.
 const repAmazon = analyzeMessage('Your order shipped.', {
   ...msgOpts, headers: { from: 'Amazon <shipment-tracking@amazon.ca>' },

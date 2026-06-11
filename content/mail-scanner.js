@@ -64,10 +64,51 @@
       if (!subjectEl) return null; // no open email
       const subject = (subjectEl.textContent || '').trim();
 
-      // Sender: first address node in the open message header
-      const senderEl = document.querySelector('.gD[email], span[email]');
-      const senderName = senderEl ? (senderEl.textContent || '').trim() : '';
-      const senderEmail = senderEl ? (senderEl.getAttribute('email') || '') : '';
+      // Sender. Gmail's markup varies: the expanded message header usually
+      // carries the address in a `.gD[email]` attribute, but some views (the
+      // spam folder especially) render it only as visible text —
+      // "Name <addr@host> (sent by …)". Never fall back to a document-wide
+      // span[email]: thread-list rows and the recipient line ("to me") also
+      // carry email attributes, so an unscoped match can hand the analyzer
+      // someone ELSE'S address and the real sender's domain is never scored.
+      const nameEl = document.querySelector('.gD');
+      let senderName = nameEl ? (nameEl.textContent || '').trim() : '';
+      let senderEmail = nameEl ? (nameEl.getAttribute('email') || '') : '';
+
+      if (!senderEmail) {
+        // Recipient addresses (the "to me" row) must never pass as the sender.
+        const recipients = new Set();
+        document.querySelectorAll('.g2[email]').forEach((el) => {
+          recipients.add((el.getAttribute('email') || '').toLowerCase());
+        });
+
+        // Search only the expanded message header that holds the sender name.
+        const header =
+          (nameEl && (nameEl.closest('.gE') || nameEl.closest('.iw') || nameEl.parentElement)) ||
+          document.querySelector('.gE, .iw');
+
+        if (header) {
+          // a) an email attribute on a non-recipient node inside the header
+          const attrEl = Array.from(header.querySelectorAll('[email]')).find(
+            (el) =>
+              !el.classList.contains('g2') &&
+              !recipients.has((el.getAttribute('email') || '').toLowerCase())
+          );
+          if (attrEl) {
+            senderEmail = attrEl.getAttribute('email') || '';
+            if (!senderName) senderName = (attrEl.textContent || '').trim();
+          }
+
+          // b) the visible header text — "Name <addr@host> (sent by …)"
+          if (!senderEmail) {
+            const text = header.textContent || '';
+            const found = (text.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi) || [])
+              .find((a) => !recipients.has(a.toLowerCase()));
+            if (found) senderEmail = found;
+          }
+        }
+      }
+
       const sender = senderEmail ? `${senderName} <${senderEmail}>` : senderName;
 
       // Bodies: all expanded message bodies in the thread
