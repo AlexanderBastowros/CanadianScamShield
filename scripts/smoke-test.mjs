@@ -550,6 +550,53 @@ assert(
   true
 );
 
+// ── Sender-domain reputation (throwaway / machine-generated addresses) ──────
+// Real scam samples that carry valid SPF/DKIM ("Trusted Sender") on nonsense
+// domains, which no content keyword catches.
+const repAntivirus = analyzeMessage(
+  'LAST REMINDER: CONFIRMATION NEEDED. Your subscription may expire today.',
+  { ...msgOpts, headers: { from: 'Total Protection <owrdcwrassu@fqwapijmo.again999.idood-esiot.me>' } }
+);
+assert(
+  'analyzeMessage(throwaway domain) → flagged (medium/high)',
+  ['medium', 'high'].includes(repAntivirus.verdict),
+  true
+);
+assert(
+  'analyzeMessage(throwaway domain) → random_sender_domain fired',
+  repAntivirus.firedRules.some((r) => r.id === 'random_sender_domain'),
+  true
+);
+assert(
+  'analyzeMessage(throwaway domain) → random local part fired',
+  repAntivirus.firedRules.some((r) => r.id === 'random_sender_local_part'),
+  true
+);
+
+const repAbusedTld = analyzeMessage(
+  'Payment Attempt Failed During Renewal of Your Cloud Storage Subscription.',
+  { ...msgOpts, headers: { from: 'Cloud <ihwjsagmmaw@enoradnaj.briefing.perks.bany.biz.id>' } }
+);
+assert(
+  'analyzeMessage(deep chain + abused TLD) → flagged',
+  repAbusedTld.verdict !== 'safe',
+  true
+);
+
+// Reputation must NOT fire on legitimate / verified / normal senders.
+const repAmazon = analyzeMessage('Your order shipped.', {
+  ...msgOpts, headers: { from: 'Amazon <shipment-tracking@amazon.ca>' },
+});
+assert(
+  'analyzeMessage(verified sender) → no reputation rules',
+  repAmazon.firedRules.some((r) => r.id.startsWith('random_sender') || r.id === 'deep_subdomain_chain_sender'),
+  false
+);
+const repSmallBiz = analyzeMessage('Thanks for subscribing to our weekly recipes!', {
+  ...msgOpts, headers: { from: 'Joe Cafe <newsletter@joescafe.com>' },
+});
+assert("analyzeMessage(normal small-biz sender) → 'safe'", repSmallBiz.verdict, 'safe');
+
 // French explanations come from user_explanation_fr when lang='fr'
 const sinFr = analyzeMessage(
   'To verify your identity please provide your Social Insurance Number.',
