@@ -502,6 +502,54 @@ assert(
   true
 );
 
+// ── Verified-sender dampening ────────────────────────────────────────────────
+// Mail from a domain that suffix-matches the whitelist or an org's known
+// sending domains must NOT be flagged by content-keyword rules (real Amazon
+// emails mention gift cards; real Interac emails mention transfers).
+const realAmazon = analyzeMessage(
+  'Your package has shipped! Track at https://www.amazon.ca/track. '
+  + 'You earned a $5 Amazon gift card reward.',
+  { ...msgOpts, headers: { from: 'Amazon.ca <shipment-tracking@amazon.ca>' } }
+);
+assert("analyzeMessage(real amazon.ca sender) → 'safe'", realAmazon.verdict, 'safe');
+assert('analyzeMessage(real amazon.ca) → senderVerified true', realAmazon.senderVerified, true);
+
+const realInterac = analyzeMessage(
+  'You received an INTERAC e-Transfer. We are processing your transfer.',
+  { ...msgOpts, headers: { from: 'Interac <notify@payments.interac.ca>' } }
+);
+assert("analyzeMessage(real interac sender) → 'safe'", realInterac.verdict, 'safe');
+
+// A whitelisted domain must never count as a lookalike of another whitelisted
+// domain (amazon.ca is within edit distance 2 of amazon.com — both are real).
+assert(
+  'analyzeMessage(real amazon.ca) → no lookalike rule fired',
+  realAmazon.firedRules.some((r) => r.id === 'domain_lookalike_high_value'),
+  false
+);
+
+// Dampening must NOT protect lookalike or unverified senders…
+const lookalikeAmazon = analyzeMessage(
+  'You earned a $5 Amazon gift card reward. Send us the codes on the back.',
+  { ...msgOpts, headers: { from: 'Amazon <deals@amaz0n.ca>' } }
+);
+assert(
+  "analyzeMessage(amaz0n.ca lookalike) → still flagged",
+  lookalikeAmazon.verdict !== 'safe',
+  true
+);
+
+// …and structural danger from a "verified" sender must still flag.
+const verifiedExe = analyzeMessage(
+  'Invoice attached: statement.exe — open to view.',
+  { ...msgOpts, headers: { from: 'Amazon <billing@amazon.ca>' } }
+);
+assert(
+  'analyzeMessage(verified sender + .exe attachment) → executable_attachment fired',
+  verifiedExe.firedRules.some((r) => r.id === 'executable_attachment'),
+  true
+);
+
 // French explanations come from user_explanation_fr when lang='fr'
 const sinFr = analyzeMessage(
   'To verify your identity please provide your Social Insurance Number.',
