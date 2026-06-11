@@ -200,19 +200,19 @@ const keywords = {
       weight: 15,
       cap: 45,
       terms: ['CRA', 'Canada Revenue Agency', 'GST/HST refund', 'tax refund'],
-      terms_fr: [],
+      terms_fr: ['Agence du revenu du Canada', 'remboursement d’impôt'],
     },
     urgency_triggers: {
       weight: 20,
       cap: 40,
       terms: ['within 24 hours', 'final notice'],
-      terms_fr: [],
+      terms_fr: ['dans les 24 heures'],
     },
     payment_red_flags: {
       weight: 30,
       cap: 60,
       terms: ['gift card', 'Bitcoin'],
-      terms_fr: [],
+      terms_fr: ['carte-cadeau'],
     },
     credential_harvesting: {
       weight: 25,
@@ -351,6 +351,31 @@ const keywords = {
     "analyzeContent substring guard → categoriesHit empty",
     result.categoriesHit.length,
     0,
+  );
+}
+
+// ── Case 4b: a FRENCH-language scam page is detected regardless of UI language
+{
+  const frenchScam = analyzeContent(
+    {
+      title: 'Avis de l’Agence du revenu du Canada',
+      text: 'Agence du revenu du Canada : votre remboursement d’impôt est prêt. '
+          + 'Payez des frais avec une carte-cadeau dans les 24 heures.',
+      isHttps: true,
+      url: 'https://arc-remboursement.example.com',
+      fields: [],
+    },
+    { keywords, lang: 'en' } // UI lang en, page is French — must still fire
+  );
+  assert(
+    "analyzeContent(French scam page, UI=en) → 'medium'|'high'",
+    ['medium', 'high'].includes(frenchScam.verdict),
+    true
+  );
+  assert(
+    'analyzeContent(French scam) → payment_red_flags hit',
+    frenchScam.categoriesHit.includes('payment_red_flags'),
+    true
   );
 }
 

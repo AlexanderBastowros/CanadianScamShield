@@ -462,6 +462,21 @@ function initPhishtank(lang) {
     chrome.storage.sync.set({ phishtankOptIn: toggle.checked });
     showSaved(lang);
   });
+
+  // PhishTank app key
+  const keyInput = document.getElementById('phishtank-key');
+  if (keyInput) {
+    keyInput.placeholder = t('options_phishtank_key_placeholder', lang);
+    chrome.storage.sync.get({ phishtankKey: '' }, (r) => { keyInput.value = r.phishtankKey; });
+    let keyTimer = null;
+    keyInput.addEventListener('input', () => {
+      clearTimeout(keyTimer);
+      keyTimer = setTimeout(() => {
+        chrome.storage.sync.set({ phishtankKey: keyInput.value.trim() });
+        showSaved(lang);
+      }, 600);
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -534,6 +549,7 @@ function populateStaticText(lang) {
   setText(document.getElementById('phishtank-heading-text'), t('options_phishtank', lang));
   setText(document.getElementById('phishtank-label'), t('options_phishtank', lang));
   setText(document.getElementById('phishtank-note'), t('options_phishtank_note', lang));
+  setText(document.getElementById('phishtank-key-label'), t('options_phishtank_key', lang));
 }
 
 // ---------------------------------------------------------------------------

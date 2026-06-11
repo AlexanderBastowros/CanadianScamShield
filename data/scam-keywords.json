@@ -1,6 +1,6 @@
 {
-  "version": "1.0.0",
-  "last_updated": "2026-06-03",
+  "version": "1.1.0",
+  "last_updated": "2026-06-11",
   "lang": "en",
   "categories": {
     "impersonation_terms": {
@@ -49,7 +49,23 @@
         "Simplii",
         "refund available"
       ],
-      "terms_fr": []
+      "terms_fr": [
+        "Agence du revenu du Canada",
+        "Agence du revenu",
+        "Revenu Canada",
+        "remboursement de TPS/TVH",
+        "remboursement de TPS",
+        "remboursement d’impôt",
+        "remboursement disponible",
+        "Service Canada",
+        "IRCC",
+        "Immigration Canada",
+        "Citoyenneté et Immigration",
+        "Postes Canada",
+        "Gouvernement du Canada",
+        "ServiceOntario",
+        "Service Ontario"
+      ]
     },
     "urgency_triggers": {
       "weight": 20,
@@ -89,7 +105,20 @@
         "licence suspension",
         "registration will be suspended"
       ],
-      "terms_fr": []
+      "terms_fr": [
+        "mandat",
+        "mandat d’arrêt",
+        "arrestation",
+        "accusations criminelles",
+        "compte suspendu",
+        "suspendu immédiatement",
+        "dans les 24 heures",
+        "action immédiate requise",
+        "dernier avis",
+        "avertissement final",
+        "votre compte sera suspendu",
+        "votre compte sera fermé"
+      ]
     },
     "payment_red_flags": {
       "weight": 30,
@@ -132,7 +161,21 @@
         "send us the codes on the back",
         "share the gift card numbers"
       ],
-      "terms_fr": []
+      "terms_fr": [
+        "carte-cadeau",
+        "carte cadeau",
+        "cartes-cadeaux",
+        "carte iTunes",
+        "carte Google Play",
+        "Bitcoin",
+        "cryptomonnaie",
+        "portefeuille de cryptomonnaie",
+        "virement bancaire",
+        "Western Union",
+        "MoneyGram",
+        "virement Interac",
+        "virement électronique"
+      ]
     },
     "credential_harvesting": {
       "weight": 25,
