@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome — Canadian Scam Shield</title>
+  <link rel="stylesheet" href="onboarding.css">
+</head>
+<body>
+  <main class="card" role="main">
+
+    <header class="hero">
+      <span class="maple-leaf" aria-hidden="true"></span>
+      <div>
+        <p class="brand" id="brand"></p>
+        <h1 id="welcome"></h1>
+      </div>
+    </header>
+
+    <p class="intro" id="intro"></p>
+
+    <ul class="features">
+      <li>
+        <h2 id="l1-title"></h2>
+        <p id="l1-desc"></p>
+      </li>
+      <li>
+        <h2 id="l2-title"></h2>
+        <p id="l2-desc"></p>
+      </li>
+      <li>
+        <h2 id="l3-title"></h2>
+        <p id="l3-desc"></p>
+      </li>
+    </ul>
+
+    <section class="box" aria-labelledby="privacy-title">
+      <h2 id="privacy-title"></h2>
+      <p id="privacy-desc"></p>
+    </section>
+
+    <section class="box" aria-labelledby="lang-title">
+      <h2 id="lang-title"></h2>
+      <div class="radio-row" role="radiogroup" aria-labelledby="lang-title">
+        <label><input type="radio" name="language" value="en" id="lang-en"> <span id="lang-en-label"></span></label>
+        <label><input type="radio" name="language" value="fr" id="lang-fr"> <span id="lang-fr-label"></span></label>
+      </div>
+    </section>
+
+    <section class="box" aria-labelledby="mail-title">
+      <label class="check-row">
+        <input type="checkbox" id="mailscan-toggle">
+        <span id="mailscan-label"></span>
+      </label>
+      <p class="note" id="mailscan-note"></p>
+    </section>
+
+    <div class="actions">
+      <button id="done-btn" class="btn btn--primary" type="button"></button>
+      <button id="settings-btn" class="btn btn--secondary" type="button"></button>
+    </div>
+
+    <p class="cafc">
+      <a id="cafc-link" target="_blank" rel="noopener noreferrer"></a>
+    </p>
+
+  </main>
+
+  <script type="module" src="onboarding.js"></script>
+</body>
+</html>

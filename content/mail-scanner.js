@@ -42,6 +42,7 @@
     mail_scan_button: 'Scan this email',
     mail_no_email:
       'Couldn’t find an open email. Select the message text, then click "Scan this email" again.',
+    report_short: 'Report a mistake',
   };
 
   let lastSignature = null;
@@ -240,6 +241,24 @@
       chip.appendChild(contact);
     }
 
+    // Report a mistake (false positive)
+    const report = document.createElement('button');
+    report.type = 'button';
+    report.className = 'css-mail-chip__btn';
+    report.textContent = L.report_short || 'Report a mistake';
+    report.addEventListener('click', () => {
+      try {
+        chrome.runtime.sendMessage({
+          type: 'REPORT_FALSE_POSITIVE',
+          kind: 'message',
+          sender: result.senderDomain || null,
+          verdict: result.verdict,
+          reasons: (result.firedRules || []).map((r) => r.explanation || r.id),
+        });
+      } catch { /* context invalidated */ }
+    });
+    chip.appendChild(report);
+
     // Dismiss
     const dismiss = document.createElement('button');
     dismiss.type = 'button';
@@ -346,7 +365,7 @@
             'app_name', 'popup_why', 'banner_dismiss',
             'check_verdict_low', 'check_verdict_medium', 'check_verdict_high',
             'check_official_contact', 'check_advice_caution',
-            'mail_scan_button', 'mail_no_email', 'mail_chip_safe',
+            'mail_scan_button', 'mail_no_email', 'mail_chip_safe', 'report_short',
           ],
         },
         (resp) => {

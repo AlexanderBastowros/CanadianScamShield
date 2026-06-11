@@ -267,11 +267,49 @@ async function fetchDataUpdates() {
 // Lifecycle
 // ---------------------------------------------------------------------------
 
-chrome.runtime.onInstalled.addListener(() => {
+const REPO_SLUG = 'AlexanderBastowros/CanadianScamShield';
+
+chrome.runtime.onInstalled.addListener((details) => {
   console.log('Canadian Scam Shield installed');
   chrome.alarms.create('dailyDataUpdate', { periodInMinutes: 1440 });
   chrome.alarms.create('licenseRefresh', { periodInMinutes: 1440 });
+
+  // Show the onboarding page on first install (not on updates).
+  if (details.reason === 'install') {
+    chrome.tabs.create({ url: chrome.runtime.getURL('onboarding/onboarding.html') });
+  }
 });
+
+/**
+ * Builds a prefilled GitHub "false positive" issue URL. Only the information the
+ * user is already looking at is included (the flagged URL/sender, the verdict,
+ * and the reasons) — no browsing history or personal data.
+ */
+function buildFalsePositiveIssueUrl({ kind, reportedUrl, sender, verdict, reasons }) {
+  const version = chrome.runtime.getManifest().version;
+  const title = kind === 'message'
+    ? 'False positive: legitimate message flagged'
+    : 'False positive: legitimate site flagged';
+  const lines = [
+    'Canadian Scam Shield flagged something that looks legitimate.',
+    '',
+    `- Type: ${kind === 'message' ? 'email/text message' : 'website'}`,
+    reportedUrl ? `- Address: ${reportedUrl}` : null,
+    sender ? `- Sender: ${sender}` : null,
+    verdict ? `- Verdict shown: ${verdict}` : null,
+    Array.isArray(reasons) && reasons.length ? `- Reasons shown:\n${reasons.map((r) => `  - ${r}`).join('\n')}` : null,
+    `- Extension version: ${version}`,
+    '',
+    'Why I think this is legitimate (please add detail):',
+    '',
+  ].filter(Boolean);
+  const params = new URLSearchParams({
+    title,
+    labels: 'false-positive',
+    body: lines.join('\n'),
+  });
+  return `https://github.com/${REPO_SLUG}/issues/new?${params.toString()}`;
+}
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'dailyDataUpdate') {
@@ -443,6 +481,26 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse({ score: 0, verdict: 'safe', firedRules: [], extractedLinks: [], senderDomain: null, officialContact: null });
       }
     })();
+    return true;
+  }
+
+  // REPORT_FALSE_POSITIVE — open a prefilled GitHub issue in a new tab.
+  // Sent from the warning page, the in-page banner, the mail chip, or the popup.
+  if (msg.type === 'REPORT_FALSE_POSITIVE') {
+    try {
+      const url = buildFalsePositiveIssueUrl({
+        kind: msg.kind || 'site',
+        reportedUrl: msg.reportedUrl || null,
+        sender: msg.sender || null,
+        verdict: msg.verdict || null,
+        reasons: msg.reasons || [],
+      });
+      chrome.tabs.create({ url });
+      sendResponse({ ok: true });
+    } catch (e) {
+      console.error('CSS REPORT_FALSE_POSITIVE error:', e);
+      sendResponse({ ok: false });
+    }
     return true;
   }
 

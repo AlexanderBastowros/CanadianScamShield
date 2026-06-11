@@ -34,6 +34,12 @@ Responses scale with confidence: a quiet badge → a dismissible banner → a
 full-page warning with an explicit override. Bilingual (English/French)
 throughout.
 
+On first install a short **welcome page** explains the tool and lets you pick a
+language and confirm email scanning. Because false positives are the fastest way
+to lose trust, **every warning has a "report a mistake" link** that opens a
+prefilled GitHub issue (containing only the flagged address and reasons — no
+personal data) so detection can be tuned from real feedback.
+
 ## Free vs Shield Pro
 
 | | Free "Shield" | Shield Pro — $3.99/mo |

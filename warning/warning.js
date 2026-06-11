@@ -144,6 +144,23 @@ if (cafcLink) {
 // Disclaimer
 setText('disclaimer', t('warning_disclaimer', lang));
 
+// False-positive report — opens a prefilled GitHub issue via the service worker
+const reportBtn = document.getElementById('report-fp');
+if (reportBtn) {
+  reportBtn.textContent = t('report_false_positive', lang);
+  reportBtn.addEventListener('click', () => {
+    try {
+      chrome.runtime.sendMessage({
+        type: 'REPORT_FALSE_POSITIVE',
+        kind: 'site',
+        reportedUrl: url,
+        verdict: 'high',
+        reasons,
+      });
+    } catch { /* extension context unavailable */ }
+  });
+}
+
 // Button labels
 setText('btn-go-back', t('warning_go_back',  lang));
 setText('btn-proceed',  t('warning_proceed', lang));

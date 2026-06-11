@@ -473,3 +473,17 @@ body {
     background-color: ButtonText;
   }
 }
+
+/* False-positive report link */
+.report-line { text-align: center; margin-top: 12px; }
+.report-link {
+  background: none;
+  border: 0;
+  color: #1a56db;
+  font-size: 15px;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 8px;
+  min-height: 44px;
+}
+.report-link:focus-visible { outline: 3px solid #1a73e8; outline-offset: 2px; border-radius: 4px; }

@@ -259,6 +259,24 @@ function injectBanner(level, reasons, officialUrl) {
     });
   }
 
+  // ── "Report a mistake" button (false positive) ────────────────────────────
+  var reportBtn = document.createElement('button');
+  reportBtn.type = 'button';
+  reportBtn.className = 'css-scam-banner__btn css-scam-banner__btn--report';
+  reportBtn.textContent = 'Report a mistake';
+  reportBtn.addEventListener('click', function () {
+    try {
+      chrome.runtime.sendMessage({
+        type: 'REPORT_FALSE_POSITIVE',
+        kind: 'site',
+        reportedUrl: window.location.href,
+        verdict: level,
+        reasons: reasons || [],
+      });
+    } catch (e) { /* extension context unavailable */ }
+  });
+  banner.appendChild(reportBtn);
+
   // ── Dismiss button ────────────────────────────────────────────────────────
   var dismissBtn = document.createElement('button');
   dismissBtn.type = 'button';

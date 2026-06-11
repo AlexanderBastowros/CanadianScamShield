@@ -1,0 +1,70 @@
+/* onboarding.css — calm, accessible first-run page (large text, high contrast) */
+
+:root {
+  --red: #b3261e;
+  --ink: #1a1a1a;
+  --muted: #555;
+  --bg: #f7f7f5;
+  --line: #e2e2de;
+  --focus: 0 0 0 3px #1a73e8;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 32px 16px;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+.card {
+  max-width: 680px;
+  margin: 0 auto;
+  background: #fff;
+  border-radius: 12px;
+  padding: 32px;
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.08);
+}
+
+.hero { display: flex; align-items: center; gap: 16px; margin-bottom: 8px; }
+.brand { margin: 0; font-weight: 700; color: var(--red); letter-spacing: .01em; }
+h1 { margin: 2px 0 0; font-size: 28px; line-height: 1.25; }
+
+.maple-leaf {
+  width: 44px; height: 44px; flex-shrink: 0; background: var(--red);
+  clip-path: polygon(50% 0%,56% 22%,75% 10%,65% 28%,90% 30%,72% 42%,80% 55%,
+    58% 52%,60% 70%,50% 58%,40% 70%,42% 52%,20% 55%,28% 42%,10% 30%,35% 28%,25% 10%,44% 22%);
+}
+
+.intro { font-size: 18px; }
+
+.features { list-style: none; padding: 0; margin: 24px 0; display: grid; gap: 16px; }
+.features h2 { margin: 0 0 2px; font-size: 18px; color: var(--red); }
+.features p { margin: 0; }
+
+.box {
+  background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+  padding: 16px 20px; margin: 16px 0;
+}
+.box h2 { margin: 0 0 6px; font-size: 18px; }
+.note { color: var(--muted); font-size: 15px; margin: 8px 0 0; }
+
+.radio-row { display: flex; gap: 24px; }
+.radio-row label, .check-row { display: flex; align-items: center; gap: 10px; }
+input[type="radio"], input[type="checkbox"] { width: 22px; height: 22px; }
+
+.actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 24px; }
+.btn {
+  font-size: 17px; padding: 14px 24px; border-radius: 8px; cursor: pointer;
+  min-height: 50px; border: 0; font-weight: 600;
+}
+.btn--primary { background: var(--red); color: #fff; }
+.btn--secondary { background: #eee; color: var(--ink); border: 1px solid #ccc; }
+.btn:focus-visible, input:focus-visible, a:focus-visible { outline: none; box-shadow: var(--focus); }
+
+.cafc { margin-top: 24px; font-size: 15px; }
+.cafc a { color: #1a56db; }
