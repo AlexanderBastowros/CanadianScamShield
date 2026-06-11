@@ -84,13 +84,20 @@ docs/                          handoff, task prompts, Stripe setup
 2. **Load unpacked** → select this repository folder
 3. Visit `https://www.canada.ca` (clean) or serve the test pages (below).
 
-## Test
+## Test & build
 ```
-node scripts/smoke-test.mjs          # 43 assertions across all 3 layers
+node scripts/validate-data.mjs       # schema + manifest + i18n EN/FR parity
+node scripts/smoke-test.mjs          # 45 assertions across all 3 layers
 npm install jsdom                     # one-time, for the mail DOM test
 node scripts/mail-dom-test.mjs        # webmail scanner against fake Gmail/Outlook DOMs
 python3 -m http.server 8000          # then open the test pages over http://
+
+bash scripts/build-zip.sh            # → dist/canadian-scam-shield.zip (store-ready)
+node scripts/build-known-bad.mjs     # (maintainer/CI) refresh data/known-bad.json
 ```
+CI runs the validators + both test suites and uploads the packaged zip on every
+push (`.github/workflows/ci.yml`). Store assets: `docs/store-listing.md`;
+privacy policy: `docs/privacy-policy.md`.
 - `http://localhost:8000/test/scam-test-page.html` → full-page warning
 - `http://localhost:8000/test/benign-test-page.html` → no warning
 - Popup → **Check a message** → paste a scam email/text to see Layer 3.
