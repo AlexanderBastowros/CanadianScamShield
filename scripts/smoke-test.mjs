@@ -597,6 +597,29 @@ const repSmallBiz = analyzeMessage('Thanks for subscribing to our weekly recipes
 });
 assert("analyzeMessage(normal small-biz sender) → 'safe'", repSmallBiz.verdict, 'safe');
 
+// ── Legitimate senders must NOT be flagged as gibberish/throwaway ────────────
+// Regression for real-world false positives: real brand domains and mailbox
+// names can be long or consonant-heavy without being random. Only true gibberish
+// (fqwapijmo, ihwjsagmmaw, …) should trip the reputation rules.
+const legitSenders = [
+  ['Dollar Shave Club <members.ca@dollarshaveclub.com>', 'Your membership ships soon. Manage it at https://www.dollarshaveclub.com/account'],
+  ['Wealthsimple <notifications@m.wealthsimple.com>',    'Your monthly statement is ready. Sign in at https://www.wealthsimple.com'],
+  ['Bell <ebill@bell.ca>',                                'Your Bell e-Bill is ready. Total $103.96. View at https://www.bell.ca/MyBell'],
+  ['Lightspeed <hello@lightspeed.com>',                  'Your Lightspeed POS report is ready at https://www.lightspeed.com'],
+  ['GrubHub <grubhubteam@grubhub.com>',                  'Your order is on the way. Track it at https://www.grubhub.com/orders'],
+  ['Qantas <info@qatarairways.com>',                     'Your booking is confirmed. Manage it at https://www.qatarairways.com'],
+  ['CVS Health <service@cvshealth.com>',                 'Your prescription is ready for pickup. Details at https://www.cvshealth.com'],
+  ['McGraw Hill <billing@mcgrawhill.com>',               'Your invoice is available at https://www.mcgrawhill.com/account'],
+];
+for (const [from, body] of legitSenders) {
+  const r = analyzeMessage(body, { ...msgOpts, headers: { from } });
+  assert(
+    `analyzeMessage(legit sender ${from.match(/<(.+)>/)[1]}) → no random/gibberish rule fired`,
+    r.firedRules.some((x) => x.id.startsWith('random_sender')),
+    false
+  );
+}
+
 // French explanations come from user_explanation_fr when lang='fr'
 const sinFr = analyzeMessage(
   'To verify your identity please provide your Social Insurance Number.',
