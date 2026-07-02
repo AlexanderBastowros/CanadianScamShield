@@ -47,7 +47,7 @@ Not affiliated with the Government of Canada.
 - **Gmail/Outlook host access:** Required to read the email the user currently
   has open so it can be checked for scam patterns locally. User‑toggleable.
 - **storage:** Save user settings and local caches on the device.
-- **tabs / activeTab / scripting:** Show the warning page, toolbar badge, and
+- **tabs / activeTab:** Show the warning page, toolbar badge, and
   popup status for the current tab.
 - **alarms:** Schedule a once‑daily refresh of the bundled detection data.
 
@@ -59,9 +59,11 @@ Not affiliated with the Government of Canada.
 - Authentication info / financial info: only via **Stripe** for the optional paid
   subscription (email + payment handled by Stripe), not by the extension itself.
 - Sold to third parties: **No.** Used for advertising: **No.**
-- Note for reviewers: optional Pro features (off by default) may send a
-  *suspicious URL* to PhishTank and a *domain name* to a public RDAP service; see
-  the privacy policy.
+- Note for reviewers: once a day the extension fetches updated *detection data
+  files* (whitelist/keyword/rule JSON) from this project's public GitHub
+  repository — no user data is sent. Optional Pro features (off by default) may
+  send a *suspicious URL* to PhishTank and a *domain name* to a public RDAP
+  service; see the privacy policy.
 
 ## Privacy policy URL
 Publish `docs/privacy-policy.md` (e.g., as a GitHub Pages page) and link it here.
@@ -74,5 +76,5 @@ Publish `docs/privacy-policy.md` (e.g., as a GitHub Pages page) and link it here
 5. Settings page (language, sensitivity, Shield Pro).
 
 ## Small promo / store assets
-- 128×128 icon (replace the current placeholder before submitting).
+- 128×128 icon: `icons/icon128.png` (maple-leaf shield, transparent background).
 - Optional 440×280 small promo tile.

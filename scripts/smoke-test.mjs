@@ -620,6 +620,93 @@ for (const [from, body] of legitSenders) {
   );
 }
 
+// ── Link-mismatch must ignore a www. prefix on either side ──────────────────
+// <a href="https://www.rbc.com/...">www.rbc.com</a> is the same destination —
+// stripping www. from only one side used to flag every real bank email.
+const rbcStatement = analyzeMessage(
+  'Your eStatement is ready. Sign in at <a href="https://www.rbc.com/login">www.rbc.com</a>',
+  { ...msgOpts, headers: { from: 'RBC <notifications@rbc.com>' } }
+);
+assert(
+  'analyzeMessage(rbc www anchor) → link_text_url_mismatch NOT fired',
+  rbcStatement.firedRules.some((r) => r.id === 'link_text_url_mismatch'),
+  false
+);
+assert("analyzeMessage(rbc www anchor) → 'safe'", rbcStatement.verdict, 'safe');
+
+// …while a genuinely mismatched whitelisted link text must still fire.
+const spoofLink = analyzeMessage(
+  'CRA notice: view your refund at <a href="https://evil-refund.xyz/claim">canada.ca</a>',
+  { ...msgOpts, headers: { from: 'CRA <no-reply@evil-refund.xyz>' } }
+);
+assert(
+  'analyzeMessage(whitelisted text, evil href) → link_text_url_mismatch fired',
+  spoofLink.firedRules.some((r) => r.id === 'link_text_url_mismatch'),
+  true
+);
+
+// ── Dollar amounts parse in full — "$2000" is 2000, not a truncated 200 ─────
+const geekSquad = (amt) => analyzeMessage(
+  'Your subscription has been renewed. Geek Squad annual protection. '
+  + `Amount charged: $${amt}. Call 1-888-555-0199 to cancel.`,
+  msgOpts
+);
+assert(
+  'analyzeMessage(geek squad $450) → geek_squad_exact_template fired (in [199,799])',
+  geekSquad('450').firedRules.some((r) => r.id === 'geek_squad_exact_template'),
+  true
+);
+assert(
+  'analyzeMessage(geek squad $2000) → NOT fired ($2000 must not truncate to $200)',
+  geekSquad('2000').firedRules.some((r) => r.id === 'geek_squad_exact_template'),
+  false
+);
+
+// ── Deep-subdomain-chain threshold: 4 labels is normal marketing infra ───────
+const marketing4 = analyzeMessage('Your weekly digest is here.', {
+  ...msgOpts, headers: { from: 'News <news@e.mail.somebrand.com>' },
+});
+assert(
+  'analyzeMessage(4-label unverified sender) → deep_subdomain_chain_sender NOT fired',
+  marketing4.firedRules.some((r) => r.id === 'deep_subdomain_chain_sender'),
+  false
+);
+assert("analyzeMessage(4-label unverified sender) → 'safe'", marketing4.verdict, 'safe');
+const chain6 = analyzeMessage(
+  'Payment Attempt Failed During Renewal of Your Cloud Storage Subscription.',
+  { ...msgOpts, headers: { from: 'Cloud <ihwjsagmmaw@enoradnaj.briefing.perks.bany.biz.id>' } }
+);
+assert(
+  'analyzeMessage(6-label throwaway chain) → deep_subdomain_chain_sender fired',
+  chain6.firedRules.some((r) => r.id === 'deep_subdomain_chain_sender'),
+  true
+);
+
+// ── URL analyzer: deep-but-clean subdomains carry no hyphen penalty ──────────
+// (joining labels with '-' used to count the separators as hyphens)
+{
+  const deepClean = analyzeUrl('https://a.b.c.d.example.com', { whitelist, knownBad });
+  assert(
+    "analyzeUrl(a.b.c.d.example.com) → no 'hyphens' reason",
+    deepClean.reasons.some((r) => /hyphen/i.test(r)),
+    false
+  );
+}
+
+// ── URL analyzer: subdomain-spoof match must be dot-bounded ──────────────────
+// "canada.ca" must not match mid-label inside "canada.calgary-example.com".
+{
+  const calgary = analyzeUrl('https://canada.calgary-example.com', { whitelist, knownBad });
+  assert(
+    'analyzeUrl(canada.calgary-example.com) → no subdomain-spoof reason',
+    calgary.reasons.some((r) => /spoof/i.test(r)),
+    false
+  );
+  // The real spoof pattern must still be caught.
+  const realSpoof = analyzeUrl('https://cra.gc.ca.refund-portal.xyz', { whitelist, knownBad });
+  assert("analyzeUrl(cra.gc.ca.refund-portal.xyz) → still 'high'", realSpoof.verdict, 'high');
+}
+
 // French explanations come from user_explanation_fr when lang='fr'
 const sinFr = analyzeMessage(
   'To verify your identity please provide your Social Insurance Number.',

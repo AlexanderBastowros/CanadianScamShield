@@ -3,3 +3,7 @@ package-lock.json
 dist/
 *.log
 .DS_Store
+
+# Test / browser-automation artifacts
+test-results/
+playwright-report/

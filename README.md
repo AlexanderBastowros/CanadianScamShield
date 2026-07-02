@@ -74,7 +74,7 @@ options/                       settings: language, lists, sensitivity, Pro
 data/                          whitelist (372), patterns (39 rules), sender
                                domains (30), keywords, known-bad
 server/                        Cloudflare Worker: Stripe checkout + licenses
-scripts/smoke-test.mjs         57 Node assertions across all three layers
+scripts/smoke-test.mjs         Node assertions across all three layers
 scripts/e2e.mjs                real-browser e2e (Playwright + unpacked extension)
 scripts/test-all.mjs           runs every suite + a machine-readable summary
 test/                          local fake pages for manual testing
@@ -93,7 +93,7 @@ npm test                             # runs ALL suites + a parseable summary
 
 # …or run an individual suite directly:
 node scripts/validate-data.mjs       # schema + manifest + i18n EN/FR parity
-node scripts/smoke-test.mjs          # 57 assertions across all 3 layers
+node scripts/smoke-test.mjs          # detection assertions across all 3 layers
 node scripts/mail-dom-test.mjs       # webmail scanner against fake Gmail/Outlook DOMs (jsdom)
 npx playwright install chromium      # one-time, for the end-to-end tests
 node scripts/e2e.mjs                 # real-browser e2e: loads the unpacked extension,
@@ -130,3 +130,7 @@ user** — PhishTank URL lookups and RDAP domain-age checks. No telemetry, ever.
 - Canadian Anti-Fraud Centre: **1-888-495-8501** ·
   antifraudcentre-centreantifraude.ca
 - CRA legitimate line: 1-800-959-8281
+
+## License
+Proprietary — see [LICENSE](LICENSE). The source is published for transparency
+(so users can verify the privacy claims), not for reuse.

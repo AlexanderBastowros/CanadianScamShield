@@ -44,15 +44,12 @@ jobs:
       - name: Install Playwright Chromium + system deps
         run: npx playwright install --with-deps chromium
 
-      - name: Ensure Xvfb is available (headed Chromium needs a display for MV3 extensions)
-        run: sudo apt-get update && sudo apt-get install -y xvfb
-
       - name: End-to-end extension tests
         run: node scripts/e2e.mjs
 
   package:
     runs-on: ubuntu-latest
-    needs: test
+    needs: [test, e2e]
     steps:
       - uses: actions/checkout@v4
       - name: Build extension zip

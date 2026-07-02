@@ -151,9 +151,35 @@ if (window.top === window) {
 // 3. Listen for SHOW_BANNER messages from the service worker
 // ---------------------------------------------------------------------------
 
+// English fallbacks, overwritten by GET_I18N so the banner renders in the
+// user's language (this classic script cannot import lib/i18n.js directly).
+var BANNER_KEYS = ['banner_caution', 'banner_learn_more', 'banner_dismiss', 'report_short', 'banner_official_site'];
+var BANNER_L = {
+  banner_caution:
+    'Canadian Scam Shield: this site looks suspicious. ' +
+    'Be careful before entering any personal information.',
+  banner_learn_more: 'Why?',
+  banner_dismiss: 'Dismiss',
+  report_short: 'Report a mistake',
+  banner_official_site: 'Looking for the real site? Visit:',
+};
+
 chrome.runtime.onMessage.addListener(function (msg) {
   if (msg.type === 'SHOW_BANNER') {
-    injectBanner(msg.level, msg.reasons, msg.officialUrl);
+    // Fetch localized strings first; fall back to English on any failure so
+    // the warning always shows.
+    try {
+      chrome.runtime.sendMessage({ type: 'GET_I18N', keys: BANNER_KEYS }, function (res) {
+        if (!chrome.runtime.lastError && res && res.strings) {
+          for (var k in res.strings) {
+            if (res.strings[k] && res.strings[k] !== k) BANNER_L[k] = res.strings[k];
+          }
+        }
+        injectBanner(msg.level, msg.reasons, msg.officialUrl);
+      });
+    } catch (e) {
+      injectBanner(msg.level, msg.reasons, msg.officialUrl);
+    }
   }
 });
 
@@ -188,9 +214,7 @@ function injectBanner(level, reasons, officialUrl) {
   // ── Main warning text ─────────────────────────────────────────────────────
   var message = document.createElement('span');
   message.className = 'css-scam-banner__message';
-  message.textContent =
-    'Canadian Scam Shield: this site looks suspicious. ' +
-    'Be careful before entering personal information.';
+  message.textContent = BANNER_L.banner_caution;
   banner.appendChild(message);
 
   // ── First reason (brief context) ──────────────────────────────────────────
@@ -207,7 +231,7 @@ function injectBanner(level, reasons, officialUrl) {
     var whyBtn = document.createElement('button');
     whyBtn.type = 'button';
     whyBtn.className = 'css-scam-banner__btn css-scam-banner__btn--why';
-    whyBtn.textContent = 'Why?';
+    whyBtn.textContent = BANNER_L.banner_learn_more;
     whyBtn.setAttribute('aria-expanded', 'false');
     whyBtn.setAttribute('aria-controls', 'css-scam-banner-reasons');
     banner.appendChild(whyBtn);
@@ -232,7 +256,7 @@ function injectBanner(level, reasons, officialUrl) {
       var officialLink = document.createElement('p');
       officialLink.className = 'css-scam-banner__official-link';
       officialLink.appendChild(
-        document.createTextNode('Looking for the real site? Visit: ')
+        document.createTextNode(BANNER_L.banner_official_site + ' ')
       );
       var officialAnchor = document.createElement('a');
       officialAnchor.href = officialUrl;
@@ -263,7 +287,7 @@ function injectBanner(level, reasons, officialUrl) {
   var reportBtn = document.createElement('button');
   reportBtn.type = 'button';
   reportBtn.className = 'css-scam-banner__btn css-scam-banner__btn--report';
-  reportBtn.textContent = 'Report a mistake';
+  reportBtn.textContent = BANNER_L.report_short;
   reportBtn.addEventListener('click', function () {
     try {
       chrome.runtime.sendMessage({
@@ -281,7 +305,7 @@ function injectBanner(level, reasons, officialUrl) {
   var dismissBtn = document.createElement('button');
   dismissBtn.type = 'button';
   dismissBtn.className = 'css-scam-banner__btn css-scam-banner__btn--dismiss';
-  dismissBtn.textContent = 'Dismiss';
+  dismissBtn.textContent = BANNER_L.banner_dismiss;
   dismissBtn.addEventListener('click', function () {
     banner.remove();
   });

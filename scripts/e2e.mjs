@@ -266,6 +266,42 @@ try {
     await page.close();
   }
 
+  // ---- Case 4b: permissive sensitivity downgrades a low page to silent ------
+  {
+    await reset(context, { sensitivity: 'permissive' });
+    const page = await context.newPage();
+    const url = fx('low-test-page.html');
+    await page.goto(url, { waitUntil: 'load' });
+    await sleep(3000); // past the idle-callback window
+    ok('permissive → low page shows no badge', (await badgeFor(context, url)) === '');
+    ok('permissive → low page not redirected', !/warning\.html/.test(page.url()));
+    await page.close();
+  }
+
+  // ---- Case 4c: strict sensitivity escalates a medium page to full block ----
+  {
+    await reset(context, { sensitivity: 'strict' });
+    const page = await context.newPage();
+    await page.goto(fx('medium-test-page.html'), { waitUntil: 'load' }).catch(() => {});
+    const redirected = await waitFor(() => /warning\.html/.test(page.url()), { timeout: 10000 });
+    ok('strict → medium page escalates to full-page warning', redirected);
+    await page.close();
+  }
+
+  // ---- Case 4d: banner renders in French when language is fr ----------------
+  {
+    await reset(context, { language: 'fr' });
+    const page = await context.newPage();
+    await page.goto(fx('medium-test-page.html'), { waitUntil: 'load' });
+    const banner = await waitFor(async () => (await page.$('#css-scam-banner')) ? true : false, { timeout: 10000 });
+    ok('fr → banner injected', banner);
+    if (banner) {
+      const text = await page.textContent('#css-scam-banner .css-scam-banner__message');
+      ok('fr → banner message is French', /ce site semble suspect/i.test(text || ''));
+    }
+    await page.close();
+  }
+
   // ---- Case 5: popup message checker — scam text → flagged + rules ----------
   {
     await reset(context);

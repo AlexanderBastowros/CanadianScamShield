@@ -258,8 +258,9 @@ function initChecker(lang) {
     setText(btn, t('check_button', lang));
 
     if (!res) {
-      setText(errorEl, 'Something went wrong — try again.');
+      setText(errorEl, t('check_generic_error', lang));
       show(errorEl);
+      hide(results);   // don't leave a previous check's results under the error
       return;
     }
     renderCheckResult(res, lang);
