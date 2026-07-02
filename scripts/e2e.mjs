@@ -148,6 +148,32 @@ async function badgeFor(context, url) {
   }, url);
 }
 
+/**
+ * Serves fake HTML for a real https:// host via request interception, so
+ * Layer 1 (which keys off the hostname) can be exercised without the network.
+ * `handler` is an HTML string or (url) => html.
+ */
+function routeHtml(context, pattern, handler) {
+  return context.route(pattern, (route) => {
+    const html = typeof handler === 'function' ? handler(route.request().url()) : handler;
+    route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: html });
+  });
+}
+
+/**
+ * Opens popup.html pretending `tabUrl` is the active tab. popup.js resolves
+ * the tab to analyse via chrome.tabs.query — opened as a normal page the popup
+ * itself would be the active tab, so stub the query before its script runs.
+ */
+async function openPopupWithActiveTab(context, extensionId, tabUrl) {
+  const popup = await context.newPage();
+  await popup.addInitScript((u) => {
+    chrome.tabs.query = () => Promise.resolve([{ id: 999, url: u }]);
+  }, tabUrl);
+  await popup.goto(`chrome-extension://${extensionId}/popup/popup.html`);
+  return popup;
+}
+
 // ---------------------------------------------------------------------------
 // 5. Main
 // ---------------------------------------------------------------------------
@@ -199,6 +225,16 @@ try {
   const sw = await getSW(context);
   const extensionId = new URL(sw.url()).host;
   ok('extension service worker registered', !!extensionId);
+
+  // ---- Case 0: first install opens the onboarding page ----------------------
+  {
+    const onboarding = await waitFor(
+      () => context.pages().find((p) => /onboarding\/onboarding\.html/.test(p.url())),
+      { timeout: 10000 },
+    );
+    ok('install → onboarding page opened automatically', !!onboarding);
+    if (onboarding) await onboarding.close();
+  }
 
   // Warm the SW once so the first verdict isn't slowed by lazy data loading.
   await reset(context);
@@ -442,6 +478,357 @@ try {
         { timeout: 10000 },
       );
       ok('go-back: navigated to a safe page', left);
+    }
+    await page.close();
+  }
+
+  // ==========================================================================
+  // Part 2 — full scenario coverage (routed https hosts, popup states, banner
+  // interactions, options deep-dive, webmail via request interception)
+  // ==========================================================================
+
+  const BENIGN_HTML = '<!doctype html><html><head><title>Site</title></head><body><p>Plain page.</p></body></html>';
+  await routeHtml(context, /https:\/\/(www\.)?canada\.ca\/.*/, BENIGN_HTML);
+  await routeHtml(context, /https:\/\/cra-refund-2026\.xyz\/.*/, BENIGN_HTML);
+  await context.route(/https:\/\/github\.com\/.*/, (route) =>
+    route.fulfill({ status: 200, contentType: 'text/html', body: '<html><body>gh</body></html>' }));
+  await context.route(/https:\/\/raw\.githubusercontent\.com\/.*/, (route) =>
+    route.fulfill({ status: 404, body: 'not found' }));
+
+  // ---- Case 14: whitelisted institution (Layer 1) → silent, badge cleared ---
+  {
+    await reset(context);
+    const page = await context.newPage();
+    const url = 'https://www.canada.ca/en.html';
+    await page.goto(url, { waitUntil: 'load' });
+    await sleep(2500);
+    ok('canada.ca (routed) → no banner, no redirect', !(await page.$('#css-scam-banner')) && page.url() === url);
+    ok('canada.ca (routed) → badge cleared', (await badgeFor(context, url)) === '');
+    await page.close();
+  }
+
+  // ---- Case 15: pure Layer-1 high (fake-gov keyword + bad TLD) → blocked ----
+  {
+    await reset(context);
+    const page = await context.newPage();
+    const url = 'https://cra-refund-2026.xyz/claim';
+    await page.goto(url, { waitUntil: 'load' }).catch(() => {});
+    const redirected = await waitFor(() => /warning\.html/.test(page.url()), { timeout: 10000 });
+    ok('cra-refund-2026.xyz → blocked by Layer 1 alone', redirected);
+
+    // ---- Case 16: warning page renders the details -------------------------
+    if (redirected) {
+      const shownUrl = await page.textContent('#suspicious-url');
+      ok('warning page shows the suspicious URL', shownUrl === url);
+      const reasonCount = await page.$$eval('#reasons-list li', (els) => els.length);
+      ok('warning page lists at least one reason', reasonCount >= 1);
+      ok('warning page buttons are labeled',
+        !!(await page.textContent('#btn-go-back')) && !!(await page.textContent('#btn-proceed')));
+
+      // ---- Case 17: "Report a mistake" opens a prefilled GitHub issue ------
+      // The SW opens the tab via chrome.tabs.create, whose navigation races
+      // ahead of Playwright's route interception — capture the URL at the
+      // source instead of depending on the network.
+      await sw.evaluate(() => {
+        self._origTabsCreate = chrome.tabs.create;
+        self._createdUrls = [];
+        chrome.tabs.create = (opts) => {
+          self._createdUrls.push(opts && opts.url);
+          return Promise.resolve({});
+        };
+      });
+      await page.click('#report-fp');
+      const issueUrl = await waitFor(
+        () => sw.evaluate(() => (self._createdUrls || [])[0] || false),
+        { timeout: 8000 },
+      );
+      await sw.evaluate(() => { chrome.tabs.create = self._origTabsCreate; });
+      ok('report-a-mistake → opens github issue with false-positive label',
+        /github\.com\/.+\/issues\/new\?.*false-positive/.test(issueUrl || ''));
+    }
+    await page.close();
+  }
+
+  // ---- Case 18: popup status states (active tab stubbed) --------------------
+  {
+    await reset(context);
+
+    // Unknown: opened as a plain page, the popup itself is the active tab.
+    const unknown = await context.newPage();
+    await unknown.goto(`chrome-extension://${extensionId}/popup/popup.html`);
+    await unknown.waitForSelector('#status-result:not([hidden])', { timeout: 8000 });
+    ok('popup (extension page active) → unknown state',
+      /status-text--unknown/.test(await unknown.getAttribute('#status-text', 'class') || ''));
+    await unknown.close();
+
+    // Safe: whitelisted institution, with the recognized-as detail line.
+    const safe = await openPopupWithActiveTab(context, extensionId, 'https://www.canada.ca/en.html');
+    await safe.waitForSelector('#status-result:not([hidden])', { timeout: 8000 });
+    ok('popup over canada.ca → safe state',
+      /status-text--safe/.test(await safe.getAttribute('#status-text', 'class') || ''));
+    ok('popup over canada.ca → recognized as Government of Canada',
+      /Government of Canada/.test(await safe.textContent('#status-detail') || ''));
+    await safe.close();
+
+    // Caution: suspicious TLD alone scores low.
+    const caution = await openPopupWithActiveTab(context, extensionId, 'https://portal-notice.xyz/');
+    await caution.waitForSelector('#status-result:not([hidden])', { timeout: 8000 });
+    ok('popup over .xyz site → caution state',
+      /status-text--caution/.test(await caution.getAttribute('#status-text', 'class') || ''));
+    await caution.close();
+
+    // Flagged: Layer-1 high, and the Why? accordion reveals reasons.
+    const flagged = await openPopupWithActiveTab(context, extensionId, 'https://cra-refund-2026.xyz/claim');
+    await flagged.waitForSelector('#status-result:not([hidden])', { timeout: 8000 });
+    ok('popup over flagged site → flagged state',
+      /status-text--flagged/.test(await flagged.getAttribute('#status-text', 'class') || ''));
+    await flagged.click('#why-btn');
+    await flagged.waitForSelector('#reasons-panel:not([hidden])', { timeout: 5000 });
+    const whyCount = await flagged.$$eval('#reasons-list li', (els) => els.length);
+    ok('popup Why? accordion reveals reasons', whyCount >= 1);
+    await flagged.close();
+  }
+
+  // ---- Case 19: popup checker — empty input error + Ctrl+Enter shortcut -----
+  {
+    await reset(context);
+    const popup = await context.newPage();
+    await popup.goto(`chrome-extension://${extensionId}/popup/popup.html`);
+    await popup.click('#tab-check');
+    await popup.click('#check-btn');
+    await popup.waitForSelector('#check-error:not([hidden])', { timeout: 5000 });
+    ok('popup checker empty input → error shown', true);
+    ok('popup checker empty input → results stay hidden',
+      await popup.$eval('#check-results', (el) => el.hidden));
+
+    await popup.fill('#check-textarea', "Hi mom, dinner at 6 tonight.");
+    await popup.press('#check-textarea', 'Control+Enter');
+    await popup.waitForSelector('#check-results:not([hidden])', { timeout: 8000 });
+    ok('popup checker Ctrl+Enter → runs the check',
+      /check-verdict--safe/.test(await popup.getAttribute('#check-verdict', 'class') || ''));
+    await popup.close();
+  }
+
+  // ---- Case 20: popup renders in French ------------------------------------
+  {
+    await reset(context, { language: 'fr' });
+    const popup = await context.newPage();
+    await popup.goto(`chrome-extension://${extensionId}/popup/popup.html`);
+    const tabLabel = await waitFor(async () => {
+      const t = await popup.textContent('#tab-status');
+      return t === 'Ce site' ? t : false;
+    }, { timeout: 5000 });
+    ok('popup (language fr) → tabs labeled in French', tabLabel === 'Ce site');
+    await popup.close();
+  }
+
+  // ---- Case 21: banner component — reasons, official link, dismiss ----------
+  // Drive the content script directly (SW → tabs.sendMessage) so every banner
+  // affordance can be asserted deterministically.
+  {
+    await reset(context);
+    const page = await context.newPage();
+    const url = fx('benign-test-page.html');
+    await page.goto(url, { waitUntil: 'load' });
+
+    const send = () => sw.evaluate(async (u) => {
+      const [tab] = await chrome.tabs.query({ url: u });
+      await chrome.tabs.sendMessage(tab.id, {
+        type: 'SHOW_BANNER', level: 'medium',
+        reasons: ['Test reason one', 'Test reason two'],
+        officialUrl: 'https://www.canada.ca',
+      });
+    }, url);
+
+    await send();
+    await page.waitForSelector('#css-scam-banner', { timeout: 8000 });
+    ok('banner (driven) → first reason shown',
+      (await page.textContent('#css-scam-banner .css-scam-banner__first-reason')) === 'Test reason one');
+
+    ok('banner Why? starts collapsed',
+      (await page.getAttribute('.css-scam-banner__btn--why', 'aria-expanded')) === 'false');
+    await page.click('.css-scam-banner__btn--why');
+    await page.waitForSelector('#css-scam-banner-reasons:not([hidden])', { timeout: 5000 });
+    const liCount = await page.$$eval('#css-scam-banner-reasons li', (els) => els.length);
+    ok('banner Why? expands the full reasons list', liCount === 2);
+    ok('banner official-site link points at the real site',
+      /^https:\/\/www\.canada\.ca\/?$/.test(await page.getAttribute('#css-scam-banner-reasons a', 'href') || ''));
+
+    await send(); // idempotency: a second SHOW_BANNER must not duplicate
+    await sleep(500);
+    const bannerCount = await page.$$eval('.css-scam-banner', (els) => els.length);
+    ok('banner is idempotent (no duplicates)', bannerCount === 1);
+
+    await page.click('.css-scam-banner__btn--dismiss');
+    await sleep(300);
+    ok('banner Dismiss removes it', !(await page.$('#css-scam-banner')));
+    await page.close();
+  }
+
+  // ---- Case 22: options — validation, duplicates, remove, Pro lock ----------
+  {
+    await reset(context);
+    const opts = await context.newPage();
+    await opts.goto(`chrome-extension://${extensionId}/options/options.html`);
+
+    await opts.fill('#whitelist-input', 'not a domain!!');
+    await opts.click('#whitelist-add-btn');
+    await opts.waitForSelector('#whitelist-error:not([hidden])', { timeout: 5000 });
+    ok('options invalid domain → error shown', true);
+
+    await opts.fill('#whitelist-input', 'example.com');
+    await opts.click('#whitelist-add-btn');
+    await opts.waitForSelector('#whitelist-list .domain-list__item', { timeout: 5000 });
+    await opts.fill('#whitelist-input', 'example.com');
+    await opts.click('#whitelist-add-btn');
+    await opts.waitForSelector('#whitelist-error:not([hidden])', { timeout: 5000 });
+    ok('options duplicate domain → duplicate error',
+      /already/.test(await opts.textContent('#whitelist-error') || ''));
+
+    await opts.click('#whitelist-list .btn--remove');
+    const emptied = await waitFor(async () =>
+      (await opts.$$eval('#whitelist-list .domain-list__item', (els) => els.length)) === 0, { timeout: 5000 });
+    ok('options remove → entry removed from the list', emptied);
+    const wl = await sw.evaluate(() => chrome.storage.sync.get({ customWhitelist: [] }).then((r) => r.customWhitelist));
+    ok('options remove → storage emptied', Array.isArray(wl) && wl.length === 0);
+
+    ok('options free tier → Pro sensitivity radios locked',
+      await opts.isDisabled('input[name="sensitivity"][value="strict"]'));
+    ok('options free tier → Pro blocklist input locked', await opts.isDisabled('#blocklist-input'));
+    await opts.close();
+  }
+
+  // ---- Case 23: options Pro — blocklist add + PhishTank opt-in ---------------
+  {
+    await reset(context, { proStatus: 'active', proCheckedAt: new Date().toISOString() });
+    const opts = await context.newPage();
+    await opts.goto(`chrome-extension://${extensionId}/options/options.html`);
+    const unlocked = await waitFor(async () => !(await opts.isDisabled('#blocklist-input')), { timeout: 6000 });
+    ok('options Pro → blocklist unlocked', unlocked);
+
+    await opts.fill('#blocklist-input', 'bad-site.com');
+    await opts.click('#blocklist-add-btn');
+    const persisted = await waitFor(async () => {
+      const r = await sw.evaluate(() => chrome.storage.sync.get({ customBlocklist: [] }).then((x) => x.customBlocklist));
+      return r.includes('bad-site.com');
+    }, { timeout: 5000 });
+    ok('options Pro → blocklist entry persisted', persisted);
+
+    await opts.check('#phishtank-toggle');
+    const optIn = await waitFor(async () =>
+      sw.evaluate(() => chrome.storage.sync.get({ phishtankOptIn: false }).then((r) => r.phishtankOptIn)), { timeout: 5000 });
+    ok('options Pro → PhishTank opt-in persisted', optIn === true);
+    await opts.close();
+  }
+
+  // ---- Case 24: options in French + manual data update ----------------------
+  {
+    await reset(context, { language: 'fr' });
+    const opts = await context.newPage();
+    await opts.goto(`chrome-extension://${extensionId}/options/options.html`);
+    const heading = await waitFor(async () => {
+      const t = await opts.textContent('#lang-heading');
+      return t === 'Langue' ? t : false;
+    }, { timeout: 5000 });
+    ok('options (language fr) → headings in French', heading === 'Langue');
+
+    // "Update now" with the data host unreachable (routed 404) must still
+    // complete gracefully and stamp a last-updated time.
+    await opts.click('#update-now-btn');
+    const stamped = await waitFor(async () => {
+      const t = await opts.textContent('#data-updated-value');
+      return !!t && t.trim() !== '—';
+    }, { timeout: 10000 });
+    ok('options Update now (data host down) → completes and stamps a date', stamped);
+    await opts.close();
+  }
+
+  // ---- Case 25: Gmail webmail chip via request interception ------------------
+  const GMAIL_SCAM = `<!doctype html><html><body>
+    <div class="bq9"><h2 class="hP">Unpaid toll notice</h2></div>
+    <div class="gE"><span class="gD" email="billing@407-etr-pay.top">Toll Services</span></div>
+    <div class="ii gt"><div class="a3s aiL">
+      407 ETR: You have an unpaid toll balance. Pay now at
+      <a href="https://407-etr-pay.top/billing">https://407-etr-pay.top/billing</a>
+    </div></div></body></html>`;
+  const GMAIL_BENIGN = `<!doctype html><html><body>
+    <div class="bq9"><h2 class="hP">Dinner tonight</h2></div>
+    <div class="gE"><span class="gD" email="mom@example.com">Mom</span></div>
+    <div class="ii gt"><div class="a3s aiL">Hi sweetie, dinner's at 6. Love you.</div></div></body></html>`;
+  await routeHtml(context, /https:\/\/mail\.google\.com\/.*/, (u) =>
+    u.includes('/u/1/') ? GMAIL_BENIGN : GMAIL_SCAM);
+  await routeHtml(context, /https:\/\/outlook\.live\.com\/.*/, `<!doctype html><html><body>
+    <div role="main">
+      <div role="heading" aria-level="2">Unpaid toll notice</div>
+      <span title="billing@toll-pay.top">Toll Services</span>
+      <div role="document">407 ETR: You have an unpaid toll balance. Pay now at
+        <a href="https://407-etr-pay.top/billing">https://407-etr-pay.top/billing</a></div>
+    </div></body></html>`);
+
+  {
+    await reset(context);
+    const page = await context.newPage();
+    await page.goto('https://mail.google.com/mail/u/0/', { waitUntil: 'load' });
+    const chip = await page.waitForSelector('#css-mail-chip', { timeout: 12000 }).catch(() => null);
+    ok('Gmail (routed) scam email → verdict chip injected', !!chip);
+    if (chip) {
+      ok('Gmail chip → non-safe verdict',
+        /css-mail-chip--(low|medium|high)/.test(await page.getAttribute('#css-mail-chip', 'class') || ''));
+      const reasonCount = await page.$$eval('#css-mail-chip-reasons li', (els) => els.length).catch(() => 0);
+      await page.click('#css-mail-chip .css-mail-chip__btn').catch(() => {});
+      ok('Gmail chip → lists at least one reason', reasonCount >= 1);
+    }
+    ok('Gmail → scan FAB present', !!(await page.$('#css-mail-fab')));
+    await page.close();
+  }
+
+  // ---- Case 26: Gmail benign email → chip stays away -------------------------
+  {
+    await reset(context);
+    const page = await context.newPage();
+    await page.goto('https://mail.google.com/mail/u/1/', { waitUntil: 'load' });
+    await sleep(3500); // past the scanner's 1200ms initial pass + debounce
+    ok('Gmail benign email → no chip', !(await page.$('#css-mail-chip')));
+    ok('Gmail benign email → FAB still present', !!(await page.$('#css-mail-fab')));
+    await page.close();
+  }
+
+  // ---- Case 27: mail scanning disabled → scanner fully inert -----------------
+  {
+    await reset(context, { mailScanEnabled: false });
+    const page = await context.newPage();
+    await page.goto('https://mail.google.com/mail/u/0/', { waitUntil: 'load' });
+    await sleep(3500);
+    ok('mail scan disabled → no chip', !(await page.$('#css-mail-chip')));
+    ok('mail scan disabled → no FAB', !(await page.$('#css-mail-fab')));
+    await page.close();
+  }
+
+  // ---- Case 28: Outlook webmail chip -----------------------------------------
+  {
+    await reset(context);
+    const page = await context.newPage();
+    await page.goto('https://outlook.live.com/mail/0/', { waitUntil: 'load' });
+    const chip = await page.waitForSelector('#css-mail-chip', { timeout: 12000 }).catch(() => null);
+    ok('Outlook (routed) scam email → verdict chip injected', !!chip);
+    if (chip) {
+      ok('Outlook chip → non-safe verdict',
+        /css-mail-chip--(low|medium|high)/.test(await page.getAttribute('#css-mail-chip', 'class') || ''));
+    }
+    await page.close();
+  }
+
+  // ---- Case 29: custom blocklist blocks navigation with the user's reason ----
+  {
+    await reset(context, { customBlocklist: ['localhost'] });
+    const page = await context.newPage();
+    await page.goto(fx('benign-test-page.html'), { waitUntil: 'load' }).catch(() => {});
+    const redirected = await waitFor(() => /warning\.html/.test(page.url()), { timeout: 10000 });
+    ok('custom blocklist → navigation blocked with full-page warning', redirected);
+    if (redirected) {
+      const reasons = await page.$$eval('#reasons-list li', (els) => els.map((e) => e.textContent));
+      ok('custom blocklist → warning explains "Blocked by your settings"',
+        reasons.some((r) => /Blocked by your settings/.test(r)));
     }
     await page.close();
   }

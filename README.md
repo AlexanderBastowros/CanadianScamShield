@@ -96,8 +96,10 @@ node scripts/validate-data.mjs       # schema + manifest + i18n EN/FR parity
 node scripts/smoke-test.mjs          # detection assertions across all 3 layers
 node scripts/mail-dom-test.mjs       # webmail scanner against fake Gmail/Outlook DOMs (jsdom)
 npx playwright install chromium      # one-time, for the end-to-end tests
-node scripts/e2e.mjs                 # real-browser e2e: loads the unpacked extension,
-                                     # checks warning/banner/badge, popup, options, storage
+node scripts/e2e.mjs                 # real-browser e2e: loads the unpacked extension and
+                                     # exercises every surface — warning/banner/badge, popup
+                                     # states, options, storage, onboarding, and the Gmail/
+                                     # Outlook scanners (webmail served via route interception)
 python3 -m http.server 8000          # then open the test pages over http:// for manual checks
 
 bash scripts/build-zip.sh            # → dist/canadian-scam-shield.zip (store-ready)
