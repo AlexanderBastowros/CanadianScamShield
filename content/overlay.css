@@ -167,6 +167,11 @@
   opacity: 0.85;
 }
 
+/* Report a mistake — secondary action, matches the Why? de-emphasis */
+.css-scam-banner__btn--report {
+  opacity: 0.85;
+}
+
 /* Dismiss — clearly labelled, subtle de-emphasis */
 .css-scam-banner__btn--dismiss {
   margin-left: auto; /* push to far right on wide screens */

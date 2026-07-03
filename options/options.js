@@ -520,6 +520,11 @@ function populateStaticText(lang) {
   setText(document.getElementById('whitelist-input-label'), t('options_whitelist_placeholder', lang));
   setText(document.getElementById('whitelist-add-btn'), t('options_whitelist_add', lang));
 
+  // Screen-reader-only labels
+  setText(document.getElementById('info-heading'), t('options_about_heading', lang));
+  document.getElementById('whitelist-list')?.setAttribute('aria-label', t('aria_whitelist_list', lang));
+  document.getElementById('blocklist-list')?.setAttribute('aria-label', t('aria_blocklist_list', lang));
+
   // Email scanning section
   setText(document.getElementById('mailscan-heading'), t('options_mail_scan', lang));
   setText(document.getElementById('mailscan-label'), t('options_mail_scan', lang));

@@ -144,6 +144,9 @@ if (cafcLink) {
 // Disclaimer
 setText('disclaimer', t('warning_disclaimer', lang));
 
+// Localized ARIA label for the CAFC report section
+document.getElementById('cafc-section')?.setAttribute('aria-label', t('aria_report_section', lang));
+
 // False-positive report — opens a prefilled GitHub issue via the service worker
 const reportBtn = document.getElementById('report-fp');
 if (reportBtn) {

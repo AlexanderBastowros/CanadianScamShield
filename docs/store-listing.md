@@ -68,12 +68,14 @@ Not affiliated with the Government of Canada.
 ## Privacy policy URL
 Publish `docs/privacy-policy.md` (e.g., as a GitHub Pages page) and link it here.
 
-## Screenshots to capture (1280×800)
-1. Full‑page warning on a look‑alike CRA site.
-2. In‑page yellow banner on a medium‑risk page.
-3. Popup “Check a message” showing a flagged email with reasons.
-4. Gmail inline chip on a scam email.
-5. Settings page (language, sensitivity, Shield Pro).
+## Screenshots (1280×800) — generated, ready to upload
+Pre-rendered by `node scripts/store-screenshots.mjs` into `docs/store-assets/`:
+1. `screenshot-1-warning.png` — full‑page warning on a look‑alike CRA site.
+2. `screenshot-2-banner.png` — in‑page yellow banner on a medium‑risk page.
+3. `screenshot-3-message-checker.png` — popup “Check a message” with a flagged email.
+4. `screenshot-4-gmail-chip.png` — Gmail inline chip on a scam email.
+5. `screenshot-5-settings.png` — settings page (language, lists, Shield Pro).
+Re-run the script after UI changes to refresh them.
 
 ## Small promo / store assets
 - 128×128 icon: `icons/icon128.png` (maple-leaf shield, transparent background).
