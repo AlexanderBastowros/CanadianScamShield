@@ -337,10 +337,13 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     const result = await runAnalysis(tab.url);
     const { reasons, officialUrl, institutionName } = result;
 
-    // Apply sensitivity, then re-band (escalate-only relative to raw verdict).
+    // Apply sensitivity, then re-band. The raw-verdict floor is skipped for
+    // 'permissive' — otherwise it would cancel the -15 downgrade and make the
+    // setting a no-op (for strict/balanced the floor is a defensive no-op).
     const adjusted = applySensitivity(result.score, settings.sensitivity);
     let verdict = bandOf(adjusted);
-    if (VERDICT_RANK[result.verdict] > VERDICT_RANK[verdict]) verdict = result.verdict;
+    if (settings.sensitivity !== 'permissive' &&
+        VERDICT_RANK[result.verdict] > VERDICT_RANK[verdict]) verdict = result.verdict;
 
     if (verdict === 'high') {
       chrome.tabs.update(tabId, {
@@ -430,8 +433,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
         const combined = applySensitivity(combinedRaw, settings.sensitivity);
 
+        // Same permissive exception as the navigation path above.
         let finalVerdict = bandOf(combined);
-        if (VERDICT_RANK[l1.verdict] > VERDICT_RANK[finalVerdict]) finalVerdict = l1.verdict;
+        if (settings.sensitivity !== 'permissive' &&
+            VERDICT_RANK[l1.verdict] > VERDICT_RANK[finalVerdict]) finalVerdict = l1.verdict;
 
         if (finalVerdict === 'high') {
           chrome.tabs.update(tabId, {

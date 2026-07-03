@@ -258,8 +258,9 @@ function initChecker(lang) {
     setText(btn, t('check_button', lang));
 
     if (!res) {
-      setText(errorEl, 'Something went wrong — try again.');
+      setText(errorEl, t('check_generic_error', lang));
       show(errorEl);
+      hide(results);   // don't leave a previous check's results under the error
       return;
     }
     renderCheckResult(res, lang);
@@ -364,6 +365,8 @@ async function main() {
   setText(document.getElementById('app-name'), t('app_name', lang));
   setText(document.getElementById('tab-status'), t('popup_tab_status', lang));
   setText(document.getElementById('tab-check'), t('popup_tab_check', lang));
+  setText(document.getElementById('sr-checking'), t('sr_checking_site', lang));
+  document.querySelector('.tabs')?.setAttribute('aria-label', t('aria_popup_nav', lang));
 
   // Pre-populate the why-btn label so it renders even before a verdict
   setText(document.getElementById('why-btn'), t('popup_why', lang));

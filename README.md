@@ -74,7 +74,9 @@ options/                       settings: language, lists, sensitivity, Pro
 data/                          whitelist (372), patterns (39 rules), sender
                                domains (30), keywords, known-bad
 server/                        Cloudflare Worker: Stripe checkout + licenses
-scripts/smoke-test.mjs         43 Node assertions across all three layers
+scripts/smoke-test.mjs         Node assertions across all three layers
+scripts/e2e.mjs                real-browser e2e (Playwright + unpacked extension)
+scripts/test-all.mjs           runs every suite + a machine-readable summary
 test/                          local fake pages for manual testing
 docs/                          handoff, task prompts, Stripe setup
 ```
@@ -86,17 +88,31 @@ docs/                          handoff, task prompts, Stripe setup
 
 ## Test & build
 ```
+npm install                          # one-time: dev deps (jsdom + playwright)
+npm test                             # runs ALL suites + a parseable summary
+
+# …or run an individual suite directly:
 node scripts/validate-data.mjs       # schema + manifest + i18n EN/FR parity
-node scripts/smoke-test.mjs          # 45 assertions across all 3 layers
-npm install jsdom                     # one-time, for the mail DOM test
-node scripts/mail-dom-test.mjs        # webmail scanner against fake Gmail/Outlook DOMs
-python3 -m http.server 8000          # then open the test pages over http://
+node scripts/smoke-test.mjs          # detection assertions across all 3 layers
+node scripts/mail-dom-test.mjs       # webmail scanner against fake Gmail/Outlook DOMs (jsdom)
+npx playwright install chromium      # one-time, for the end-to-end tests
+node scripts/e2e.mjs                 # real-browser e2e: loads the unpacked extension and
+                                     # exercises every surface — warning/banner/badge, popup
+                                     # states, options, storage, onboarding, and the Gmail/
+                                     # Outlook scanners (webmail served via route interception)
+python3 -m http.server 8000          # then open the test pages over http:// for manual checks
 
 bash scripts/build-zip.sh            # → dist/canadian-scam-shield.zip (store-ready)
 node scripts/build-known-bad.mjs     # (maintainer/CI) refresh data/known-bad.json
 ```
-CI runs the validators + both test suites and uploads the packaged zip on every
-push (`.github/workflows/ci.yml`). Store assets: `docs/store-listing.md`;
+`scripts/e2e.mjs` drives a headed Chromium under `xvfb-run` (MV3 service workers
+and content scripts do not load in default headless). If Playwright's browser
+download is blocked, point it at any Chrome/Chromium via `CSS_CHROME_BIN=/path/to/chrome`.
+`npm test` (scripts/test-all.mjs) chains every suite and ends with a machine-readable
+`===CSS_TEST_SUMMARY===` JSON block for CI/automation.
+CI runs the validators, all three Node test suites, and the browser e2e suite,
+then uploads the packaged zip on every push (`.github/workflows/ci.yml`).
+Store assets: `docs/store-listing.md`;
 privacy policy: `docs/privacy-policy.md`.
 - `http://localhost:8000/test/scam-test-page.html` → full-page warning
 - `http://localhost:8000/test/benign-test-page.html` → no warning
@@ -116,3 +132,7 @@ user** — PhishTank URL lookups and RDAP domain-age checks. No telemetry, ever.
 - Canadian Anti-Fraud Centre: **1-888-495-8501** ·
   antifraudcentre-centreantifraude.ca
 - CRA legitimate line: 1-800-959-8281
+
+## License
+Proprietary — see [LICENSE](LICENSE). The source is published for transparency
+(so users can verify the privacy claims), not for reuse.

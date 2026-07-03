@@ -23,13 +23,13 @@ All analysis runs locally — no account, no server costs.
 - Lookalike / homoglyph detection
 - Basic email/SMS paste checker
 - TLD enforcement (`.gc.ca` / `.canada.ca` rules)
+- SIN field detection on non-gov sites
 - CAFC reporting integration
 
 ### Paid "Shield Pro" — $3.99/month (Stripe, web-based — avoids 30% app store cut)
 Features with real API costs or false-positive risk that requires tunable controls:
 - Live PhishTank feed
 - WHOIS domain age checks
-- SIN field detection on non-gov sites
 - Auth header analysis (SPF/DKIM/DMARC)
 - Sender domain reputation lookups
 - Link extraction scanning
@@ -42,7 +42,7 @@ Free features are local-only — zero marginal cost. Pro features either hit ext
 ### Upgrade moments (6 mapped, tied to genuine capability gaps)
 1. User pastes a message and domain age check would help but isn't available
 2. User visits a suspicious URL and PhishTank would confirm/clear it
-3. User asks why a site wasn't caught (answer: SIN field detection is Pro)
+3. User asks why a borderline site wasn't caught (answer: domain-age/PhishTank enrichment is Pro)
 4. User reports a false positive (sensitivity controls are Pro)
 5. User wants to whitelist a personal banking subdomain
 6. User wants to block a specific site permanently
@@ -192,7 +192,7 @@ Thresholds shift ±15 based on user sensitivity setting (Strict / Balanced / Per
    - Urgency triggers (warrant, arrest, suspended, 24 hours)
    - Payment red flags (gift cards, Bitcoin, e-Transfer to individual)
    - Credential harvesting (SIN field on non-.gc.ca site)
-3. [Pro] Detect SIN input fields on non-whitelisted domains
+3. Detect SIN input fields on non-whitelisted domains (ships free)
 4. Layer 1 score + Layer 2 score → combined threshold check
 5. Inject banner / trigger full-page warning accordingly
 ```
@@ -303,7 +303,7 @@ Primary audience includes older Canadians. Warnings must be:
 - [ ] Stripe web subscription flow for Shield Pro
 - [ ] PhishTank API integration (Pro gate)
 - [ ] WHOIS domain age API integration (Pro gate)
-- [ ] SIN field detection on page content (Pro gate)
+- [x] SIN field detection on page content (ships free)
 - [ ] Auth header parsing in message analyzer (Pro gate)
 - [ ] Chrome Web Store listing, screenshots, privacy policy
 - [ ] Firefox port (manifest adjustments, test suite)

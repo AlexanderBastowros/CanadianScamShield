@@ -192,7 +192,7 @@ function initWhitelistSection(lang) {
 
     // Validate
     if (!domain || !DOMAIN_REGEX.test(domain)) {
-      setText(errorEl, 'Please enter a valid domain (e.g. example.com).');
+      setText(errorEl, t('options_domain_invalid', lang));
       show(errorEl);
       input.setAttribute('aria-invalid', 'true');
       input.focus();
@@ -208,7 +208,7 @@ function initWhitelistSection(lang) {
 
       // Deduplicate — don't add if already present
       if (current.includes(domain)) {
-        setText(errorEl, `${domain} is already in your trusted sites list.`);
+        setText(errorEl, t('options_domain_duplicate', lang).replace('{domain}', domain));
         show(errorEl);
         return;
       }
@@ -339,7 +339,7 @@ async function initProSection(lang) {
     } else if (res.valid === false) {
       renderState('inactive');
     } else {
-      setText(statusEl, 'Could not reach the license server — your last status is kept.');
+      setText(statusEl, t('options_pro_unreachable', lang));
     }
   });
 
@@ -362,7 +362,7 @@ async function initProSection(lang) {
         throw new Error('no url');
       }
     } catch {
-      setText(note, 'Checkout is not configured yet. See docs/stripe-setup.md.');
+      setText(note, t('options_checkout_unconfigured', lang));
       show(note);
     }
   });
@@ -429,7 +429,7 @@ function initBlocklist(lang) {
   function handleAdd() {
     const domain = normaliseDomain(input.value);
     if (!domain || !DOMAIN_REGEX.test(domain)) {
-      setText(errorEl, 'Please enter a valid domain (e.g. example.com).');
+      setText(errorEl, t('options_domain_invalid', lang));
       show(errorEl);
       return;
     }
@@ -519,6 +519,11 @@ function populateStaticText(lang) {
   setText(document.getElementById('whitelist-desc'),    t('options_whitelist_desc', lang));
   setText(document.getElementById('whitelist-input-label'), t('options_whitelist_placeholder', lang));
   setText(document.getElementById('whitelist-add-btn'), t('options_whitelist_add', lang));
+
+  // Screen-reader-only labels
+  setText(document.getElementById('info-heading'), t('options_about_heading', lang));
+  document.getElementById('whitelist-list')?.setAttribute('aria-label', t('aria_whitelist_list', lang));
+  document.getElementById('blocklist-list')?.setAttribute('aria-label', t('aria_blocklist_list', lang));
 
   // Email scanning section
   setText(document.getElementById('mailscan-heading'), t('options_mail_scan', lang));

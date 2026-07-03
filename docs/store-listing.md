@@ -47,7 +47,7 @@ Not affiliated with the Government of Canada.
 - **Gmail/Outlook host access:** Required to read the email the user currently
   has open so it can be checked for scam patterns locally. User‑toggleable.
 - **storage:** Save user settings and local caches on the device.
-- **tabs / activeTab / scripting:** Show the warning page, toolbar badge, and
+- **tabs / activeTab:** Show the warning page, toolbar badge, and
   popup status for the current tab.
 - **alarms:** Schedule a once‑daily refresh of the bundled detection data.
 
@@ -59,20 +59,24 @@ Not affiliated with the Government of Canada.
 - Authentication info / financial info: only via **Stripe** for the optional paid
   subscription (email + payment handled by Stripe), not by the extension itself.
 - Sold to third parties: **No.** Used for advertising: **No.**
-- Note for reviewers: optional Pro features (off by default) may send a
-  *suspicious URL* to PhishTank and a *domain name* to a public RDAP service; see
-  the privacy policy.
+- Note for reviewers: once a day the extension fetches updated *detection data
+  files* (whitelist/keyword/rule JSON) from this project's public GitHub
+  repository — no user data is sent. Optional Pro features (off by default) may
+  send a *suspicious URL* to PhishTank and a *domain name* to a public RDAP
+  service; see the privacy policy.
 
 ## Privacy policy URL
 Publish `docs/privacy-policy.md` (e.g., as a GitHub Pages page) and link it here.
 
-## Screenshots to capture (1280×800)
-1. Full‑page warning on a look‑alike CRA site.
-2. In‑page yellow banner on a medium‑risk page.
-3. Popup “Check a message” showing a flagged email with reasons.
-4. Gmail inline chip on a scam email.
-5. Settings page (language, sensitivity, Shield Pro).
+## Screenshots (1280×800) — generated, ready to upload
+Pre-rendered by `node scripts/store-screenshots.mjs` into `docs/store-assets/`:
+1. `screenshot-1-warning.png` — full‑page warning on a look‑alike CRA site.
+2. `screenshot-2-banner.png` — in‑page yellow banner on a medium‑risk page.
+3. `screenshot-3-message-checker.png` — popup “Check a message” with a flagged email.
+4. `screenshot-4-gmail-chip.png` — Gmail inline chip on a scam email.
+5. `screenshot-5-settings.png` — settings page (language, lists, Shield Pro).
+Re-run the script after UI changes to refresh them.
 
 ## Small promo / store assets
-- 128×128 icon (replace the current placeholder before submitting).
+- 128×128 icon: `icons/icon128.png` (maple-leaf shield, transparent background).
 - Optional 440×280 small promo tile.

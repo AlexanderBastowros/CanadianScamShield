@@ -57,7 +57,7 @@ The free tier uses only connection #1.
 - **Gmail / Outlook access:** to read the email you currently have open and warn
   you if it looks like a scam. Analyzed locally; you can turn it off in Settings.
 - **Storage:** to save your settings and caches on your device.
-- **Tabs / activeTab / scripting:** to show the warning page, badge, and popup
+- **Tabs / activeTab:** to show the warning page, badge, and popup
   for the current tab.
 - **Alarms:** to schedule the once-a-day data refresh.
 

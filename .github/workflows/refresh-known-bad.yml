@@ -1,0 +1,56 @@
+# Refreshes data/known-bad.json from the OpenPhish community feed and commits
+# the result, so the extension's daily updater (which pulls this file from
+# GitHub raw on master) ships fresh confirmed-phishing hosts to users.
+#
+# NOTE: the extension reads the file from the MASTER branch (DATA_BASE_URL in
+# background/service-worker.js), so this workflow only benefits users once it
+# lives on master.
+name: Refresh known-bad data
+
+on:
+  schedule:
+    - cron: "17 6 * * 1" # weekly, Mondays 06:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Build known-bad.json from the phishing feed
+        run: node scripts/build-known-bad.mjs
+
+      - name: Validate data files still pass schema checks
+        run: node scripts/validate-data.mjs
+
+      - name: Detection smoke tests still pass with the new data
+        run: node scripts/smoke-test.mjs
+
+      - name: Commit and push if the list changed
+        run: |
+          # The build script always bumps version/last_updated; only commit
+          # when the actual domain list changed, so unchanged weeks don't
+          # force every client to re-download an identical list.
+          if node -e "
+            const { execSync } = require('node:child_process');
+            const now = require('./data/known-bad.json').domains;
+            const old = JSON.parse(execSync('git show HEAD:data/known-bad.json', {encoding:'utf8'})).domains;
+            process.exit(JSON.stringify(now) === JSON.stringify(old) ? 0 : 1);
+          "; then
+            echo "domain list unchanged — nothing to commit."
+            git checkout -- data/known-bad.json
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/known-bad.json
+          git commit -m "Refresh known-bad.json from phishing feed"
+          git push

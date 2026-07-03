@@ -208,8 +208,10 @@
       whyBtn.className = 'css-mail-chip__btn';
       whyBtn.textContent = L.popup_why;
       whyBtn.setAttribute('aria-expanded', 'false');
+      whyBtn.setAttribute('aria-controls', 'css-mail-chip-reasons');
 
       const reasons = document.createElement('ul');
+      reasons.id = 'css-mail-chip-reasons';
       reasons.className = 'css-mail-chip__reasons';
       reasons.hidden = true;
       firedRules.forEach((r) => {
